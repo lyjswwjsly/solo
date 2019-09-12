@@ -1,6 +1,6 @@
 /*
- * Symphony - A modern community (forum/SNS/blog) platform written in Java.
- * Copyright (C) 2012-2017,  b3log.org & hacpai.com
+ * Solo - A small and beautiful blogging system written in Java.
+ * Copyright (c) 2010-present, b3log.org
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -21,7 +21,7 @@
  *
  * @author <a href="http://vanessa.b3log.org">Liyuan Li</a>
  * @author <a href="http://88250.b3log.org">Liang Ding</a>
- * @version 1.7.0.0, Oct 2, 2018
+ * @version 1.7.0.2, Mar 29, 2019
  */
 
 'use strict'
@@ -30,37 +30,75 @@ const concat = require('gulp-concat')
 const uglify = require('gulp-uglify')
 const sass = require('gulp-sass')
 const rename = require('gulp-rename')
-const minifycss = require('gulp-minify-css')
 const del = require('del')
 
-function sassProcess () {
+function sassSkinProcess () {
   return gulp.src('./src/main/webapp/skins/*/css/*.scss').
-    pipe(sass().on('error', sass.logError)).
+    pipe(sass({
+      outputStyle: 'compressed',
+      includePaths: ['node_modules']
+    }).on('error', sass.logError)).
     pipe(gulp.dest('./src/main/webapp/skins/'))
 }
 
-function sassProcessWatch () {
-  gulp.watch('./src/main/webapp/skins/*/css/*.scss', sassProcess)
+function sassWatch () {
+  gulp.watch(['./src/main/webapp/skins/*/css/*.scss'], sassSkinProcess)
+  gulp.watch(['./src/main/webapp/scss/*.scss'], sassCommonProcess)
 }
 
-gulp.task('watch', gulp.series(sassProcessWatch))
+function sassCommonProcess () {
+  return gulp.src('./src/main/webapp/scss/*.scss').
+    pipe(sass({
+      outputStyle: 'compressed',
+      includePaths: ['node_modules']
+    }).on('error', sass.logError)).
+    pipe(gulp.dest('./src/main/webapp/scss/'))
+}
 
+gulp.task('watch', gulp.series(sassWatch))
+
+function minJS () {
+  // minify js
+  return gulp.src('./src/main/webapp/js/*.js').
+    pipe(rename({suffix: '.min'})).
+    pipe(uglify()).
+    pipe(gulp.dest('./src/main/webapp/js/'))
+}
 
 function miniAdmin () {
   // concat js
   const jsJqueryUpload = [
+    './src/main/webapp/js/admin/admin.js',
+    './src/main/webapp/js/admin/editor.js',
+    './src/main/webapp/js/admin/tablePaginate.js',
+    './src/main/webapp/js/admin/article.js',
+    './src/main/webapp/js/admin/comment.js',
+    './src/main/webapp/js/admin/articleList.js',
+    './src/main/webapp/js/admin/draftList.js',
+    './src/main/webapp/js/admin/pageList.js',
+    './src/main/webapp/js/admin/others.js',
+    './src/main/webapp/js/admin/linkList.js',
+    './src/main/webapp/js/admin/preference.js',
+    './src/main/webapp/js/admin/themeList.js',
+    './src/main/webapp/js/admin/pluginList.js',
+    './src/main/webapp/js/admin/userList.js',
+    './src/main/webapp/js/admin/categoryList.js',
+    './src/main/webapp/js/admin/commentList.js',
+    './src/main/webapp/js/admin/plugin.js',
+    './src/main/webapp/js/admin/main.js',
+    './src/main/webapp/js/admin/about.js']
+  return gulp.src(jsJqueryUpload).
+    pipe(uglify({output: {ascii_only: true}})).
+    pipe(concat('admin.min.js')).
+    pipe(gulp.dest('./src/main/webapp/js/admin'))
+
+}
+
+function miniAdminLibs () {
+  // concat js
+  const jsJqueryUpload = [
     './src/main/webapp/js/lib/jquery/jquery.min.js',
-    './src/main/webapp/js/lib/jquery/file-upload-9.10.1/vendor/jquery.ui.widget.js',
-    './src/main/webapp/js/lib/jquery/file-upload-9.10.1/jquery.iframe-transport.js',
-    './src/main/webapp/js/lib/jquery/file-upload-9.10.1/jquery.fileupload.js',
-    './src/main/webapp/js/lib/jquery/jquery.bowknot.min.js',
-    // codemirror
-    './src/main/webapp/js/lib/CodeMirrorEditor/codemirror.js',
-    './src/main/webapp/js/lib/CodeMirrorEditor/placeholder.js',
-    './src/main/webapp/js/overwrite/codemirror/addon/hint/show-hint.js',
-    './src/main/webapp/js/lib/CodeMirrorEditor/editor.js',
-    './src/main/webapp/js/lib/to-markdown.js',
-    './src/main/webapp/js/lib/highlight.js-9.6.0/highlight.pack.js']
+    './src/main/webapp/js/lib/jquery/jquery.bowknot.min.js',]
   return gulp.src(jsJqueryUpload).
     pipe(uglify({output: {ascii_only: true}})).
     // https://github.com/b3log/solo/issues/12522
@@ -69,7 +107,7 @@ function miniAdmin () {
 
 }
 
-function miniPjax (){
+function miniPjax () {
   // concat js
   const jsPjax = [
     './src/main/webapp/js/lib/jquery/jquery-3.1.0.min.js',
@@ -81,7 +119,7 @@ function miniPjax (){
     pipe(gulp.dest('./src/main/webapp/js/lib/compress/'))
 }
 
-function scripts () {
+function minSkinJS () {
   // minify js
   return gulp.src('./src/main/webapp/skins/*/js/*.js').
     pipe(rename({suffix: '.min'})).
@@ -89,20 +127,12 @@ function scripts () {
     pipe(gulp.dest('./src/main/webapp/skins/'))
 }
 
-function styles () {
-  // minify css
-  return gulp.src('./src/main/webapp/skins/*/css/*.css').
-    pipe(rename({suffix: '.min'})).
-    pipe(minifycss()).
-    pipe(gulp.dest('./src/main/webapp/skins/'))
-}
-
 function cleanProcess () {
   return del([
-    './src/main/webapp/skins/*/css/*.min.css',
+    './src/main/webapp/js/*.min.js',
     './src/main/webapp/skins/*/js/*.min.js'])
 }
 
 gulp.task('default',
-  gulp.series(cleanProcess, sassProcess, gulp.parallel(scripts, styles),
-    gulp.parallel(miniPjax, miniAdmin)))
+  gulp.series(cleanProcess, sassSkinProcess, sassCommonProcess, gulp.parallel(minSkinJS, minJS),
+    gulp.parallel(miniPjax, miniAdmin, miniAdminLibs)))

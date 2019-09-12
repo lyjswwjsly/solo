@@ -2,7 +2,7 @@
 <!--
 
     Solo - A small and beautiful blogging system written in Java.
-    Copyright (c) 2010-2018, b3log.org & hacpai.com
+    Copyright (c) 2010-present, b3log.org
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -20,15 +20,15 @@
 -->
 <!--
     Description: Static resources definition.
-    Version: 2.7.6.6, Dec 10, 2016
+    Version: 2.8.0.61, Mar 17, 2019
     Author: Liang Ding
+    Author: Liyuan Li
 -->
 <static-files>
     <!-- Uses the STANDARD Ant Path Pattern to configure these paths!  -->
 
-    <include path="/favicon.ico"/>
-    <include path="/favicon.png"/>
     <include path="/robots.txt"/>
+    <include path="/sw.js"/>
     <include path="/manifest.json"/>
 
     <include path="/js/**.js"/>
@@ -52,9 +52,7 @@
     <include path="/js/**/*.woff"/>
 
     <include path="/skins/**.css"/>
-    <include path="/skins/**.css.map"/>
     <include path="/skins/**/*.css"/>
-    <include path="/skins/**/*.css.map"/>
     <include path="/skins/**.js"/>
     <include path="/skins/**/*.js"/>
     <include path="/skins/**.png"/>
@@ -71,12 +69,12 @@
     <include path="/skins/**/*.woff"/>
     <include path="/skins/**/*.cur"/>
 
-    <include path="/css/**.css"/>
-    <include path="/css/**/*.css"/>
-    <include path="/css/fonts/*.eot"/>
-    <include path="/css/fonts/*.svg"/>
-    <include path="/css/fonts/*.ttf"/>
-    <include path="/css/fonts/*.woff"/>
+    <include path="/scss/**.css"/>
+    <include path="/scss/**/*.css"/>
+    <include path="/scss/fonts/*.eot"/>
+    <include path="/scss/fonts/*.svg"/>
+    <include path="/scss/fonts/*.ttf"/>
+    <include path="/scss/fonts/*.woff"/>
 
     <include path="/images/**.png"/>
     <include path="/images/**/*.png"/>
@@ -104,6 +102,7 @@
     <include path="/plugins/**/*.json"/>
     <include path="/plugins/**/*.moc"/>
     <include path="/plugins/**/*.mtn"/>
+    <include path="/plugins/**/*.ogg"/>
 
     <include path="/CHANGE_LOGS.html"/>
     <include path="/LICENSE.txt"/>

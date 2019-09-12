@@ -1,6 +1,6 @@
 /*
  * Solo - A small and beautiful blogging system written in Java.
- * Copyright (c) 2010-2018, b3log.org & hacpai.com
+ * Copyright (c) 2010-present, b3log.org
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
@@ -25,19 +25,20 @@ import org.b3log.latke.repository.Transaction;
 import org.b3log.latke.service.LangPropsService;
 import org.b3log.latke.service.ServiceException;
 import org.b3log.latke.service.annotation.Service;
+import org.b3log.latke.servlet.RequestContext;
 import org.b3log.latke.util.Requests;
+import org.b3log.latke.util.URLs;
 import org.b3log.solo.cache.StatisticCache;
 import org.b3log.solo.model.Option;
 import org.b3log.solo.repository.ArticleRepository;
 import org.b3log.solo.repository.OptionRepository;
+import org.b3log.solo.util.Solos;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
 import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import java.net.URLDecoder;
-import java.net.URLEncoder;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -46,7 +47,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * Statistic management service.
  *
  * @author <a href="http://88250.b3log.org">Liang Ding</a>
- * @version 2.0.1.1, Apr 1, 2018
+ * @version 2.0.1.3, Jan 28, 2019
  * @since 0.5.0
  */
 @Service
@@ -132,11 +133,12 @@ public class StatisticMgmtService {
      * Sees this issue (https://github.com/b3log/solo/issues/44) for more details.
      * </p>
      *
-     * @param request  the specified request
+     * @param context  the specified request context
      * @param response the specified response
      * @return {@code true} if the specified request has been served, returns {@code false} otherwise
      */
-    public static boolean hasBeenServed(final HttpServletRequest request, final HttpServletResponse response) {
+    public static boolean hasBeenServed(final RequestContext context, final HttpServletResponse response) {
+        final HttpServletRequest request = context.getRequest();
         final Cookie[] cookies = request.getCookies();
         if (null == cookies || 0 == cookies.length) {
             return false;
@@ -155,7 +157,7 @@ public class StatisticMgmtService {
                     continue;
                 }
 
-                final String value = URLDecoder.decode(cookie.getValue(), "UTF-8");
+                final String value = URLs.decode(cookie.getValue());
                 cookieJSONArray = new JSONArray(value);
                 if (null == cookieJSONArray || 0 == cookieJSONArray.length()) {
                     return false;
@@ -175,14 +177,14 @@ public class StatisticMgmtService {
 
             if (needToCreate) {
                 final StringBuilder builder = new StringBuilder("[").append("\"").append(request.getRequestURI()).append("\"]");
-                final Cookie c = new Cookie("visited", URLEncoder.encode(builder.toString(), "UTF-8"));
+                final Cookie c = new Cookie("visited", URLs.encode(builder.toString()));
                 c.setMaxAge(COOKIE_EXPIRY);
                 c.setPath("/");
                 response.addCookie(c);
             } else if (needToAppend) {
                 cookieJSONArray.put(request.getRequestURI());
 
-                final Cookie c = new Cookie("visited", URLEncoder.encode(cookieJSONArray.toString(), "UTF-8"));
+                final Cookie c = new Cookie("visited", URLs.encode(cookieJSONArray.toString()));
                 c.setMaxAge(COOKIE_EXPIRY);
                 c.setPath("/");
                 response.addCookie(c);
@@ -209,17 +211,16 @@ public class StatisticMgmtService {
      * There is a cron job (/console/stat/viewcnt) to flush the blog view count from cache to datastore.
      * </p>
      *
-     * @param request  the specified request
+     * @param context  the specified request context
      * @param response the specified response
      * @throws ServiceException service exception
-     * @see Requests#searchEngineBotRequest(javax.servlet.http.HttpServletRequest)
      */
-    public void incBlogViewCount(final HttpServletRequest request, final HttpServletResponse response) throws ServiceException {
-        if (Requests.searchEngineBotRequest(request)) {
+    public void incBlogViewCount(final RequestContext context, final HttpServletResponse response) throws ServiceException {
+        if (Solos.isBot(context.getRequest())) {
             return;
         }
 
-        if (hasBeenServed(request, response)) {
+        if (hasBeenServed(context, response)) {
             return;
         }
 
@@ -252,169 +253,17 @@ public class StatisticMgmtService {
     }
 
     /**
-     * Blog statistic article count +1.
-     *
-     * @throws RepositoryException repository exception
-     */
-    public void incBlogArticleCount() throws RepositoryException {
-        final JSONObject statistic = optionRepository.get(Option.ID_C_STATISTIC_BLOG_ARTICLE_COUNT);
-        if (null == statistic) {
-            throw new RepositoryException("Not found statistic");
-        }
-
-        statistic.put(Option.OPTION_VALUE, statistic.optInt(Option.OPTION_VALUE) + 1);
-        updateStatistic(Option.ID_C_STATISTIC_BLOG_ARTICLE_COUNT, statistic);
-    }
-
-    /**
-     * Blog statistic published article count +1.
-     *
-     * @throws RepositoryException repository exception
-     */
-    public void incPublishedBlogArticleCount() throws RepositoryException {
-        final JSONObject statistic = optionRepository.get(Option.ID_C_STATISTIC_PUBLISHED_ARTICLE_COUNT);
-        if (null == statistic) {
-            throw new RepositoryException("Not found statistic");
-        }
-
-        statistic.put(Option.OPTION_VALUE, statistic.optInt(Option.OPTION_VALUE) + 1);
-        updateStatistic(Option.ID_C_STATISTIC_PUBLISHED_ARTICLE_COUNT, statistic);
-    }
-
-    /**
-     * Blog statistic article count -1.
-     *
-     * @throws RepositoryException repository exception
-     */
-    public void decBlogArticleCount() throws RepositoryException {
-        final JSONObject statistic = optionRepository.get(Option.ID_C_STATISTIC_BLOG_ARTICLE_COUNT);
-        if (null == statistic) {
-            throw new RepositoryException("Not found statistic");
-        }
-
-        statistic.put(Option.OPTION_VALUE, statistic.optInt(Option.OPTION_VALUE) - 1);
-        updateStatistic(Option.ID_C_STATISTIC_BLOG_ARTICLE_COUNT, statistic);
-    }
-
-    /**
-     * Blog statistic published article count -1.
-     *
-     * @throws RepositoryException repository exception
-     */
-    public void decPublishedBlogArticleCount() throws RepositoryException {
-        final JSONObject statistic = optionRepository.get(Option.ID_C_STATISTIC_PUBLISHED_ARTICLE_COUNT);
-        if (null == statistic) {
-            throw new RepositoryException("Not found statistic");
-        }
-
-        statistic.put(Option.OPTION_VALUE, statistic.optInt(Option.OPTION_VALUE) - 1);
-        updateStatistic(Option.ID_C_STATISTIC_PUBLISHED_ARTICLE_COUNT, statistic);
-    }
-
-    /**
-     * Blog statistic comment count +1.
-     *
-     * @throws RepositoryException repository exception
-     */
-    public void incBlogCommentCount() throws RepositoryException {
-        final JSONObject statistic = optionRepository.get(Option.ID_C_STATISTIC_BLOG_COMMENT_COUNT);
-        if (null == statistic) {
-            throw new RepositoryException("Not found statistic");
-        }
-        statistic.put(Option.OPTION_VALUE, statistic.optInt(Option.OPTION_VALUE) + 1);
-        updateStatistic(Option.ID_C_STATISTIC_BLOG_COMMENT_COUNT, statistic);
-    }
-
-    /**
-     * Blog statistic comment(published article) count +1.
-     *
-     * @throws RepositoryException repository exception
-     */
-    public void incPublishedBlogCommentCount() throws RepositoryException {
-        final JSONObject statistic = optionRepository.get(Option.ID_C_STATISTIC_PUBLISHED_BLOG_COMMENT_COUNT);
-        if (null == statistic) {
-            throw new RepositoryException("Not found statistic");
-        }
-        statistic.put(Option.OPTION_VALUE, statistic.optInt(Option.OPTION_VALUE) + 1);
-        updateStatistic(Option.ID_C_STATISTIC_PUBLISHED_BLOG_COMMENT_COUNT, statistic);
-    }
-
-    /**
-     * Blog statistic comment count -1.
-     *
-     * @throws RepositoryException repository exception
-     */
-    public void decBlogCommentCount() throws RepositoryException {
-        final JSONObject statistic = optionRepository.get(Option.ID_C_STATISTIC_BLOG_COMMENT_COUNT);
-        if (null == statistic) {
-            throw new RepositoryException("Not found statistic");
-        }
-
-        statistic.put(Option.OPTION_VALUE, statistic.optInt(Option.OPTION_VALUE) - 1);
-        updateStatistic(Option.ID_C_STATISTIC_BLOG_COMMENT_COUNT, statistic);
-    }
-
-    /**
-     * Blog statistic comment(published article) count -1.
-     *
-     * @throws RepositoryException repository exception
-     */
-    public void decPublishedBlogCommentCount() throws RepositoryException {
-        final JSONObject statistic = optionRepository.get(Option.ID_C_STATISTIC_PUBLISHED_BLOG_COMMENT_COUNT);
-        if (null == statistic) {
-            throw new RepositoryException("Not found statistic");
-        }
-
-        statistic.put(Option.OPTION_VALUE, statistic.optInt(Option.OPTION_VALUE) - 1);
-        updateStatistic(Option.ID_C_STATISTIC_PUBLISHED_BLOG_COMMENT_COUNT, statistic);
-    }
-
-    /**
-     * Sets blog comment count with the specified count.
-     *
-     * @param count the specified count
-     * @throws RepositoryException repository exception
-     */
-    public void setBlogCommentCount(final int count) throws RepositoryException {
-        final JSONObject statistic = optionRepository.get(Option.ID_C_STATISTIC_BLOG_COMMENT_COUNT);
-        if (null == statistic) {
-            throw new RepositoryException("Not found statistic");
-        }
-
-        statistic.put(Option.OPTION_VALUE, count);
-        updateStatistic(Option.ID_C_STATISTIC_BLOG_COMMENT_COUNT, statistic);
-    }
-
-    /**
-     * Sets blog comment(published article) count with the specified count.
-     *
-     * @param count the specified count
-     * @throws RepositoryException repository exception
-     */
-    public void setPublishedBlogCommentCount(final int count) throws RepositoryException {
-        final JSONObject statistic = optionRepository.get(Option.ID_C_STATISTIC_PUBLISHED_BLOG_COMMENT_COUNT);
-        if (null == statistic) {
-            throw new RepositoryException("Not found statistic");
-        }
-
-        statistic.put(Option.OPTION_VALUE, count);
-        updateStatistic(Option.ID_C_STATISTIC_PUBLISHED_BLOG_COMMENT_COUNT, statistic);
-    }
-
-    /**
      * Refreshes online visitor count for the specified request.
      *
      * @param request the specified request
      */
     public void onlineVisitorCount(final HttpServletRequest request) {
-        if (Requests.searchEngineBotRequest(request)) {
+        if (Solos.isBot(request)) {
             return;
         }
 
         final String remoteAddr = Requests.getRemoteAddr(request);
-
         LOGGER.log(Level.DEBUG, "Current request [IP={0}]", remoteAddr);
-
         ONLINE_VISITORS.put(remoteAddr, System.currentTimeMillis());
         LOGGER.log(Level.DEBUG, "Current online visitor count [{0}]", ONLINE_VISITORS.size());
     }
@@ -429,32 +278,5 @@ public class StatisticMgmtService {
     private void updateStatistic(final String id, final JSONObject statistic) throws RepositoryException {
         optionRepository.update(id, statistic);
         statisticCache.clear();
-    }
-
-    /**
-     * Sets the article repository with the specified article repository.
-     *
-     * @param articleRepository the specified article repository
-     */
-    public void setArticleRepository(final ArticleRepository articleRepository) {
-        this.articleRepository = articleRepository;
-    }
-
-    /**
-     * Sets the option repository with the specified option repository.
-     *
-     * @param optionRepository the specified option repository
-     */
-    public void setOptionRepository(final OptionRepository optionRepository) {
-        this.optionRepository = optionRepository;
-    }
-
-    /**
-     * Sets the language service with the specified language service.
-     *
-     * @param langPropsService the specified language service
-     */
-    public void setLangPropsService(final LangPropsService langPropsService) {
-        this.langPropsService = langPropsService;
     }
 }

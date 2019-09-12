@@ -1,6 +1,6 @@
 /*
  * Solo - A small and beautiful blogging system written in Java.
- * Copyright (c) 2010-2018, b3log.org & hacpai.com
+ * Copyright (c) 2010-present, b3log.org
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
@@ -20,32 +20,30 @@
  *
  * @author <a href="http://vanessa.b3log.org">Liyuan Li</a>
  * @author <a href="http://88250.b3log.org">Liang Ding</a>
- * @version 1.3.0.0, Nov 11, 2017
+ * @version 1.4.0.0, Mar 20, 2019
  */
 
-/* oterhs 相关操作 */
+/* others 相关操作 */
 admin.others = {
   /*
    * @description 初始化
    */
   init: function () {
     $("#tabOthers").tabs();
+    $('#loadMsg').text('')
+  },
+  /*
+   * @description 移除未使用的存档
+   */
+  removeUnusedArchives: function () {
+    $("#tipMsg").text("");
 
     $.ajax({
-      url: latkeConfig.servePath + "/console/reply/notification/template",
-      type: "GET",
+      url: Label.servePath + "/console/archive/unused",
+      type: "DELETE",
       cache: false,
       success: function (result, textStatus) {
         $("#tipMsg").text(result.msg);
-        if (!result.sc) {
-          $("#loadMsg").text("");
-          return;
-        }
-
-        $("#replayEmailTemplateTitle").val(result.replyNotificationTemplate.subject);
-        $("#replayEmailTemplateBody").val(result.replyNotificationTemplate.body);
-
-        $("#loadMsg").text("");
       }
     });
   },
@@ -56,7 +54,7 @@ admin.others = {
     $("#tipMsg").text("");
 
     $.ajax({
-      url: latkeConfig.servePath + "/console/tag/unused",
+      url: Label.servePath + "/console/tag/unused",
       type: "DELETE",
       cache: false,
       success: function (result, textStatus) {
@@ -71,14 +69,14 @@ admin.others = {
     $("#tipMsg").text("");
 
     $.ajax({
-      url: latkeConfig.servePath + "/console/export/sql",
+      url: Label.servePath + "/console/export/sql",
       type: "GET",
       cache: false,
       success: function (result, textStatus) {
         // AJAX 下载文件的话这里会发两次请求，用 sc 来判断是否是文件，如果没有 sc 说明文件可以下载（实际上就是 result）
         if (!result.sc) {
           // 再发一次请求进行正式下载
-          window.location = latkeConfig.servePath + "/console/export/sql";
+          window.location = Label.servePath + "/console/export/sql";
         } else {
           $("#tipMsg").text(result.msg);
         }
@@ -92,14 +90,14 @@ admin.others = {
     $("#tipMsg").text("");
 
     $.ajax({
-      url: latkeConfig.servePath + "/console/export/json",
+      url: Label.servePath + "/console/export/json",
       type: "GET",
       cache: false,
       success: function (result, textStatus) {
         // AJAX 下载文件的话这里会发两次请求，用 sc 来判断是否是文件，如果没有 sc 说明文件可以下载（实际上就是 result）
         if (!result.sc) {
           // 再发一次请求进行正式下载
-          window.location = latkeConfig.servePath + "/console/export/json";
+          window.location = Label.servePath + "/console/export/json";
         } else {
           $("#tipMsg").text(result.msg);
         }
@@ -113,14 +111,14 @@ admin.others = {
     $("#tipMsg").text("");
 
     $.ajax({
-      url: latkeConfig.servePath + "/console/export/hexo",
+      url: Label.servePath + "/console/export/hexo",
       type: "GET",
       cache: false,
       success: function (result, textStatus) {
         // AJAX 下载文件的话这里会发两次请求，用 sc 来判断是否是文件，如果没有 sc 说明文件可以下载（实际上就是 result）
         if (!result.sc) {
           // 再发一次请求进行正式下载
-          window.location = latkeConfig.servePath + "/console/export/hexo";
+          window.location = Label.servePath + "/console/export/hexo";
         } else {
           $("#tipMsg").text(result.msg);
         }
@@ -133,7 +131,7 @@ admin.others = {
    */
   getUnusedTags: function () {
     $.ajax({
-      url: latkeConfig.servePath + "/console/tag/unused",
+      url: Label.servePath + "/console/tag/unused",
       type: "GET",
       cache: false,
       success: function (result, textStatus) {
@@ -147,31 +145,6 @@ admin.others = {
         if (0 === unusedTags.length) {
           return;
         }
-      }
-    });
-  },
-  /*
-   * @description 跟新回复提醒邮件模版
-   */
-  update: function () {
-    $("#loadMsg").text(Label.loadingLabel);
-    $("#tipMsg").text("");
-
-    var requestJSONObject = {
-      "replyNotificationTemplate": {
-        "subject": $("#replayEmailTemplateTitle").val(),
-        "body": $("#replayEmailTemplateBody").val()
-      }
-    };
-
-    $.ajax({
-      url: latkeConfig.servePath + "/console/reply/notification/template",
-      type: "PUT",
-      cache: false,
-      data: JSON.stringify(requestJSONObject),
-      success: function (result, textStatus) {
-        $("#tipMsg").text(result.msg);
-        $("#loadMsg").text("");
       }
     });
   }

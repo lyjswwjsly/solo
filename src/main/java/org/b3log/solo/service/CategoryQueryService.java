@@ -1,6 +1,6 @@
 /*
  * Solo - A small and beautiful blogging system written in Java.
- * Copyright (c) 2010-2018, b3log.org & hacpai.com
+ * Copyright (c) 2010-present, b3log.org
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
@@ -43,7 +43,8 @@ import java.util.List;
  * Category query service.
  *
  * @author <a href="http://88250.b3log.org">Liang Ding</a>
- * @version 1.0.1.2, Aug 27, 2018
+ * @author <a href="https://hacpai.com/member/lzh984294471">lzh984294471</a>
+ * @version 1.0.1.4, Sep 1, 2019
  * @since 2.0.0
  */
 @Service
@@ -115,7 +116,9 @@ public class CategoryQueryService {
             for (final JSONObject relation : relations) {
                 final String tagId = relation.optString(Tag.TAG + "_" + Keys.OBJECT_ID);
                 final JSONObject tag = tagRepository.get(tagId);
-
+                if (null == tag) { // 修复修改分类时空指针错误 https://github.com/b3log/solo/pull/12876
+                    continue;
+                }
                 ret.add(tag);
             }
         } catch (final RepositoryException e) {
@@ -199,7 +202,7 @@ public class CategoryQueryService {
         final int currentPageNum = requestJSONObject.optInt(Pagination.PAGINATION_CURRENT_PAGE_NUM);
         final int pageSize = requestJSONObject.optInt(Pagination.PAGINATION_PAGE_SIZE);
         final int windowSize = requestJSONObject.optInt(Pagination.PAGINATION_WINDOW_SIZE);
-        final Query query = new Query().setCurrentPageNum(currentPageNum).setPageSize(pageSize).
+        final Query query = new Query().setPage(currentPageNum, pageSize).
                 addSort(Category.CATEGORY_ORDER, SortDirection.ASCENDING).
                 addSort(Category.CATEGORY_TAG_CNT, SortDirection.DESCENDING).
                 addSort(Keys.OBJECT_ID, SortDirection.DESCENDING);

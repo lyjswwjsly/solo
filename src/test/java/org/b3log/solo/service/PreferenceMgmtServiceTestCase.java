@@ -1,6 +1,6 @@
 /*
  * Solo - A small and beautiful blogging system written in Java.
- * Copyright (c) 2010-2018, b3log.org & hacpai.com
+ * Copyright (c) 2010-present, b3log.org
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
@@ -17,7 +17,6 @@
  */
 package org.b3log.solo.service;
 
-import org.b3log.latke.model.User;
 import org.b3log.solo.AbstractTestCase;
 import org.b3log.solo.model.Option;
 import org.json.JSONObject;
@@ -40,17 +39,7 @@ public class PreferenceMgmtServiceTestCase extends AbstractTestCase {
      */
     @Test
     public void init() throws Exception {
-        final InitService initService = getInitService();
-
-        final JSONObject requestJSONObject = new JSONObject();
-        requestJSONObject.put(User.USER_EMAIL, "test@gmail.com");
-        requestJSONObject.put(User.USER_NAME, "Admin");
-        requestJSONObject.put(User.USER_PASSWORD, "pass");
-
-        initService.init(requestJSONObject);
-
-        final UserQueryService userQueryService = getUserQueryService();
-        Assert.assertNotNull(userQueryService.getUserByEmailOrUserName("test@gmail.com"));
+        super.init();
     }
 
     /**
@@ -61,35 +50,15 @@ public class PreferenceMgmtServiceTestCase extends AbstractTestCase {
     @Test(dependsOnMethods = "init")
     public void updatePreference() throws Exception {
         final PreferenceMgmtService preferenceMgmtService = getPreferenceMgmtService();
-        final PreferenceQueryService preferenceQueryService = getPreferenceQueryService();
-        JSONObject preference = preferenceQueryService.getPreference();
+        final OptionQueryService optionQueryService = getOptionQueryService();
+        JSONObject preference = optionQueryService.getPreference();
 
-        Assert.assertEquals(preference.getString(Option.ID_C_BLOG_TITLE), "Admin 的个人博客");
+        Assert.assertEquals(preference.getString(Option.ID_C_BLOG_TITLE), "Solo 的个人博客");
 
         preference.put(Option.ID_C_BLOG_TITLE, "updated blog title");
         preferenceMgmtService.updatePreference(preference);
 
-        preference = preferenceQueryService.getPreference();
+        preference = optionQueryService.getPreference();
         Assert.assertEquals(preference.getString(Option.ID_C_BLOG_TITLE), "updated blog title");
-    }
-
-    /**
-     * Update Reply Notification Template.
-     *
-     * @throws Exception exception
-     */
-    @Test(dependsOnMethods = "init")
-    public void updateReplyNotificationTemplate() throws Exception {
-        final PreferenceMgmtService preferenceMgmtService = getPreferenceMgmtService();
-        final PreferenceQueryService preferenceQueryService = getPreferenceQueryService();
-        JSONObject replyNotificationTemplate = preferenceQueryService.getReplyNotificationTemplate();
-
-        Assert.assertEquals(replyNotificationTemplate.toString(), Option.DefaultPreference.DEFAULT_REPLY_NOTIFICATION_TEMPLATE);
-
-        replyNotificationTemplate.put("subject", "updated subject");
-        preferenceMgmtService.updateReplyNotificationTemplate(replyNotificationTemplate);
-
-        replyNotificationTemplate = preferenceQueryService.getReplyNotificationTemplate();
-        Assert.assertEquals(replyNotificationTemplate.getString("subject"), "updated subject");
     }
 }

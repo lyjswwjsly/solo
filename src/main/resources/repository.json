@@ -1,6 +1,6 @@
 {
   "description": "Description of repository structures, for generation of the relational database table and persistence validation.",
-  "version": "3.2.1.1, Sep 16, 2018",
+  "version": "3.2.1.7, Apr 19, 2019",
   "authors": [
     "Liang Ding"
   ],
@@ -81,16 +81,6 @@
           "length": 19
         },
         {
-          "name": "archiveDateArticleCount",
-          "description": "存档日期文章计数，即某个月的文章总数",
-          "type": "int"
-        },
-        {
-          "name": "archiveDatePublishedArticleCount",
-          "description": "存档日期已发布的文章计数，即某个月的已发布文章总数",
-          "type": "int"
-        },
-        {
           "name": "archiveTime",
           "description": "存档日期时间，该月份第一天的时间戳",
           "type": "long"
@@ -135,18 +125,12 @@
           "name": "commentContent",
           "description": "评论内容",
           "type": "String",
-          "length": 2000
+          "length": 2048
         },
         {
           "name": "commentCreated",
           "description": "评论时间戳",
           "type": "long"
-        },
-        {
-          "name": "commentEmail",
-          "description": "评论人邮箱",
-          "type": "String",
-          "length": 255
         },
         {
           "name": "commentName",
@@ -159,12 +143,6 @@
           "description": "评论的文章/页面的 id",
           "type": "String",
           "length": 19
-        },
-        {
-          "name": "commentOnType",
-          "description": "评论的是文章还是页面，文章：article 页面：page",
-          "type": "String",
-          "length": 20
         },
         {
           "name": "commentSharpURL",
@@ -246,17 +224,6 @@
           "length": 19
         },
         {
-          "name": "pageCommentCount",
-          "description": "页面评论计数",
-          "type": "int"
-        },
-        {
-          "name": "pageContent",
-          "description": "页面内容",
-          "type": "String",
-          "length": 1048576
-        },
-        {
           "name": "pageOrder",
           "description": "页面展现排序",
           "type": "int"
@@ -274,28 +241,10 @@
           "length": 255
         },
         {
-          "name": "pageCommentable",
-          "description": "页面是否可以评论",
-          "type": "boolean"
-        },
-        {
-          "name": "pageType",
-          "description": "页面类型，自定义导航：link，普通页面：page",
-          "type": "String",
-          "length": 10
-        },
-        {
           "name": "pageOpenTarget",
           "description": "页面打开方式",
           "type": "String",
           "length": 255
-        },
-        {
-          "name": "pageEditorType",
-          "description": "页面编辑器类型，目前仅支持 CodeMirror-Markdown",
-          "type": "String",
-          "length": 20,
-          "nullable": true
         },
         {
           "name": "pageIcon",
@@ -359,16 +308,6 @@
           "length": 19
         },
         {
-          "name": "tagPublishedRefCount",
-          "description": "标签关联的已发布文章计数",
-          "type": "int"
-        },
-        {
-          "name": "tagReferenceCount",
-          "description": "标签关联的文章计数",
-          "type": "int"
-        },
-        {
           "name": "tagTitle",
           "description": "标签标题",
           "type": "String",
@@ -411,12 +350,6 @@
           "length": 19
         },
         {
-          "name": "userEmail",
-          "description": "用户邮箱",
-          "type": "String",
-          "length": 255
-        },
-        {
           "name": "userName",
           "description": "用户名",
           "type": "String",
@@ -429,32 +362,28 @@
           "length": 255
         },
         {
-          "name": "userPassword",
-          "description": "用户密码，MD5",
-          "type": "String",
-          "length": 255
-        },
-        {
           "name": "userRole",
           "description": "用户角色，管理员：adminRole，普通用户：defaultRole，访客用户：visitorRole",
           "type": "String",
           "length": 255
         },
         {
-          "name": "userArticleCount",
-          "description": "用户文章计数",
-          "type": "int"
-        },
-        {
-          "name": "userPublishedArticleCount",
-          "description": "用户已发布文章计数",
-          "type": "int"
-        },
-        {
           "name": "userAvatar",
           "description": "用户头像图片链接地址",
           "type": "String",
           "length": 255
+        },
+        {
+          "name": "userB3Key",
+          "description": "B3log Key",
+          "type": "String",
+          "length": "64"
+        },
+        {
+          "name": "userGitHubId",
+          "description": "用户 GitHub Open Id",
+          "type": "String",
+          "length": 32
         }
       ]
     },
@@ -476,15 +405,21 @@
         },
         {
           "name": "articleAbstract",
-          "description": "文章摘要",
+          "description": "文章摘要 Markdown",
           "type": "String",
-          "length": 2000
+          "length": 2048
+        },
+        {
+          "name": "articleAbstractText",
+          "description": "文章摘要纯文本",
+          "type": "String",
+          "length": 2048
         },
         {
           "name": "articleTags",
           "description": "文章标签，英文逗号分隔",
           "type": "String",
-          "length": 2000
+          "length": 2048
         },
         {
           "name": "articleAuthorId",
@@ -513,16 +448,6 @@
           "description": "文章访问路径",
           "type": "String",
           "length": 255
-        },
-        {
-          "name": "articleHadBeenPublished",
-          "description": "文章是否已经发布过",
-          "type": "boolean"
-        },
-        {
-          "name": "articleIsPublished",
-          "description": "文章是否处于已发布状态",
-          "type": "boolean"
         },
         {
           "name": "articlePutTop",
@@ -562,11 +487,15 @@
           "legnth": 255
         },
         {
-          "name": "articleEditorType",
-          "description": "文章编辑器类型，目前仅支持 CodeMirror-Markdown",
+          "name": "articleImg1URL",
           "type": "String",
-          "length": 20,
-          "nullable": true
+          "length": 255,
+          "description": "文章首图地址"
+        },
+        {
+          "name": "articleStatus",
+          "type": "int",
+          "description": "文章状态，0：已发布，1：草稿"
         }
       ]
     },

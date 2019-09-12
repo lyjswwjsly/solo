@@ -1,6 +1,6 @@
 /*
  * Solo - A small and beautiful blogging system written in Java.
- * Copyright (c) 2010-2018, b3log.org & hacpai.com
+ * Copyright (c) 2010-present, b3log.org
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
@@ -35,7 +35,7 @@ import org.testng.annotations.Test;
  * {@link UserRepository} test case.
  *
  * @author <a href="http://88250.b3log.org">Liang Ding</a>
- * @version 1.1.0.2, Oct 17, 2015
+ * @version 1.1.0.3, Feb 8, 2019
  */
 @Test(suiteName = "repository")
 public final class UserRepositoryImplTestCase extends AbstractTestCase {
@@ -51,13 +51,11 @@ public final class UserRepositoryImplTestCase extends AbstractTestCase {
 
         final JSONObject another = new JSONObject();
         another.put(User.USER_NAME, "test1");
-        another.put(User.USER_EMAIL, "test1@gmail.com");
-        another.put(User.USER_PASSWORD, "pass1");
         another.put(User.USER_URL, "https://b3log.org");
         another.put(User.USER_ROLE, Role.DEFAULT_ROLE);
-        another.put(UserExt.USER_ARTICLE_COUNT, 0);
-        another.put(UserExt.USER_PUBLISHED_ARTICLE_COUNT, 0);
         another.put(UserExt.USER_AVATAR, "");
+        another.put(UserExt.USER_GITHUB_ID, "");
+        another.put(UserExt.USER_B3_KEY, "");
 
         Transaction transaction = userRepository.beginTransaction();
         userRepository.add(another);
@@ -67,13 +65,11 @@ public final class UserRepositoryImplTestCase extends AbstractTestCase {
 
         JSONObject admin = new JSONObject();
         admin.put(User.USER_NAME, "test");
-        admin.put(User.USER_EMAIL, "test@gmail.com");
-        admin.put(User.USER_PASSWORD, "pass");
         admin.put(User.USER_URL, "https://b3log.org");
         admin.put(User.USER_ROLE, Role.ADMIN_ROLE);
-        admin.put(UserExt.USER_ARTICLE_COUNT, 0);
-        admin.put(UserExt.USER_PUBLISHED_ARTICLE_COUNT, 0);
         admin.put(UserExt.USER_AVATAR, "");
+        admin.put(UserExt.USER_GITHUB_ID, "");
+        admin.put(UserExt.USER_B3_KEY, "");
 
         transaction = userRepository.beginTransaction();
         userRepository.add(admin);
@@ -89,13 +85,13 @@ public final class UserRepositoryImplTestCase extends AbstractTestCase {
 
         final JSONArray users = result.getJSONArray(Keys.RESULTS);
         Assert.assertEquals(users.length(), 1);
-        Assert.assertEquals(users.getJSONObject(0).getString(User.USER_EMAIL), "test1@gmail.com");
+        Assert.assertEquals(users.getJSONObject(0).getString(User.USER_NAME), "test1");
 
-        final JSONObject notFound = userRepository.getByEmail("not.found@gmail.com");
+        final JSONObject notFound = userRepository.getByUserName("not.found");
         Assert.assertNull(notFound);
 
-        final JSONObject found = userRepository.getByEmail("test1@gmail.com");
+        final JSONObject found = userRepository.getByUserName("test1");
         Assert.assertNotNull(found);
-        Assert.assertEquals(found.getString(User.USER_PASSWORD), "pass1");
+        Assert.assertEquals(found.getString(User.USER_NAME), "test1");
     }
 }

@@ -1,6 +1,6 @@
 /*
  * Solo - A small and beautiful blogging system written in Java.
- * Copyright (c) 2010-2018, b3log.org & hacpai.com
+ * Copyright (c) 2010-present, b3log.org
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
@@ -19,6 +19,7 @@ package org.b3log.solo.repository;
 
 import org.apache.commons.lang.time.DateUtils;
 import org.b3log.latke.Keys;
+import org.b3log.latke.ioc.Inject;
 import org.b3log.latke.logging.Level;
 import org.b3log.latke.logging.Logger;
 import org.b3log.latke.repository.*;
@@ -28,14 +29,13 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.text.ParseException;
-import java.util.Iterator;
 import java.util.List;
 
 /**
  * Archive date repository.
  *
  * @author <a href="http://88250.b3log.org">Liang Ding</a>
- * @version 1.0.0.3, Sep 30, 2018
+ * @version 1.0.0.5, Sep 11, 2019
  * @since 0.3.1
  */
 @Repository
@@ -46,6 +46,11 @@ public class ArchiveDateRepository extends AbstractRepository {
      */
     private static final Logger LOGGER = Logger.getLogger(ArchiveDateRepository.class);
 
+    /**
+     * Archive date-Article repository.
+     */
+    @Inject
+    private ArchiveDateArticleRepository archiveDateArticleRepository;
 
     /**
      * Public constructor.
@@ -97,33 +102,21 @@ public class ArchiveDateRepository extends AbstractRepository {
     }
 
     /**
-     * Gets archive dates.
+     * Get archive dates.
      *
-     * @return a list of archive date, returns an empty list if
-     * not found
+     * @return a list of archive date, returns an empty list if not found
      * @throws RepositoryException repository exception
      */
     public List<JSONObject> getArchiveDates() throws RepositoryException {
         final Query query = new Query().addSort(ArchiveDate.ARCHIVE_TIME, SortDirection.DESCENDING).setPageCount(1);
+        // TODO: Performance issue
         final List<JSONObject> ret = getList(query);
-        removeForUnpublishedArticles(ret);
+        for (final JSONObject archiveDate : ret) {
+            final String archiveDateId = archiveDate.optString(Keys.OBJECT_ID);
+            final int publishedArticleCount = archiveDateArticleRepository.getPublishedArticleCount(archiveDateId);
+            archiveDate.put(ArchiveDate.ARCHIVE_DATE_T_PUBLISHED_ARTICLE_COUNT, publishedArticleCount);
+        }
 
         return ret;
-    }
-
-    /**
-     * Removes archive dates of unpublished articles from the specified archive
-     * dates.
-     *
-     * @param archiveDates the specified archive dates
-     */
-    private void removeForUnpublishedArticles(final List<JSONObject> archiveDates) {
-        final Iterator<JSONObject> iterator = archiveDates.iterator();
-        while (iterator.hasNext()) {
-            final JSONObject archiveDate = iterator.next();
-            if (0 == archiveDate.optInt(ArchiveDate.ARCHIVE_DATE_PUBLISHED_ARTICLE_COUNT)) {
-                iterator.remove();
-            }
-        }
     }
 }

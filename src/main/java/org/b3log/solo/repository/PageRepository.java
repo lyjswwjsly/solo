@@ -1,6 +1,6 @@
 /*
  * Solo - A small and beautiful blogging system written in Java.
- * Copyright (c) 2010-2018, b3log.org & hacpai.com
+ * Copyright (c) 2010-present, b3log.org
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
@@ -32,7 +32,7 @@ import java.util.List;
  * Page repository.
  *
  * @author <a href="http://88250.b3log.org">Liang Ding</a>
- * @version 1.0.0.7, Sep 30, 2018
+ * @version 1.0.0.9, Jun 6, 2019
  * @since 0.3.1
  */
 @Repository
@@ -76,8 +76,8 @@ public class PageRepository extends AbstractRepository {
     }
 
     @Override
-    public void update(final String id, final JSONObject page) throws RepositoryException {
-        super.update(id, page);
+    public void update(final String id, final JSONObject page, final String... propertyNames) throws RepositoryException {
+        super.update(id, page, propertyNames);
 
         page.put(Keys.OBJECT_ID, id);
         pageCache.putPage(page);
@@ -132,7 +132,7 @@ public class PageRepository extends AbstractRepository {
         }
 
         final Query query = new Query().setFilter(new PropertyFilter(Page.PAGE_ORDER, FilterOperator.LESS_THAN, page.optInt(Page.PAGE_ORDER))).
-                addSort(Page.PAGE_ORDER, SortDirection.DESCENDING).setCurrentPageNum(1).setPageSize(1).setPageCount(1);
+                addSort(Page.PAGE_ORDER, SortDirection.DESCENDING).setPage(1, 1).setPageCount(1);
         final JSONObject result = get(query);
         final JSONArray array = result.optJSONArray(Keys.RESULTS);
         if (1 != array.length()) {
@@ -156,7 +156,7 @@ public class PageRepository extends AbstractRepository {
         }
 
         final Query query = new Query().setFilter(new PropertyFilter(Page.PAGE_ORDER, FilterOperator.GREATER_THAN, page.optInt(Page.PAGE_ORDER))).
-                addSort(Page.PAGE_ORDER, SortDirection.ASCENDING).setCurrentPageNum(1).setPageSize(1).setPageCount(1);
+                addSort(Page.PAGE_ORDER, SortDirection.ASCENDING).setPage(1, 1).setPageCount(1);
         final JSONObject result = get(query);
         final JSONArray array = result.optJSONArray(Keys.RESULTS);
         if (1 != array.length()) {

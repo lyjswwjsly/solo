@@ -1,6 +1,6 @@
 /*
  * Solo - A small and beautiful blogging system written in Java.
- * Copyright (c) 2010-2018, b3log.org & hacpai.com
+ * Copyright (c) 2010-present, b3log.org
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
@@ -18,9 +18,11 @@
 package org.b3log.solo.service;
 
 import org.b3log.latke.ioc.Inject;
+import org.b3log.latke.logging.Level;
+import org.b3log.latke.logging.Logger;
 import org.b3log.latke.repository.RepositoryException;
-import org.b3log.latke.service.ServiceException;
 import org.b3log.latke.service.annotation.Service;
+import org.b3log.solo.model.Option;
 import org.b3log.solo.repository.OptionRepository;
 import org.json.JSONObject;
 
@@ -28,11 +30,16 @@ import org.json.JSONObject;
  * Option query service.
  *
  * @author <a href="http://88250.b3log.org">Liang Ding</a>
- * @version 1.0.0.2, Sep 19, 2018
+ * @version 1.0.0.4, Jun 13, 2019
  * @since 0.6.0
  */
 @Service
 public class OptionQueryService {
+
+    /**
+     * Logger.
+     */
+    private static final Logger LOGGER = Logger.getLogger(OptionQueryService.class);
 
     /**
      * Option repository.
@@ -41,17 +48,63 @@ public class OptionQueryService {
     private OptionRepository optionRepository;
 
     /**
+     * Gets the skin.
+     *
+     * @return skin, returns {@code null} if not found
+     */
+    public JSONObject getSkin() {
+        try {
+            return getOptions(Option.CATEGORY_C_SKIN);
+        } catch (final Exception e) {
+            LOGGER.log(Level.ERROR, "Gets skin failed", e);
+
+            return null;
+        }
+    }
+
+    /**
+     * Gets the user preference.
+     *
+     * @return user preference, returns {@code null} if not found
+     */
+    public JSONObject getPreference() {
+        try {
+            return getOptions(Option.CATEGORY_C_PREFERENCE);
+        } catch (final Exception e) {
+            LOGGER.log(Level.ERROR, "Gets preference failed", e);
+
+            return null;
+        }
+    }
+
+    /**
+     * Checks whether allow comment globally.
+     *
+     * @return {@code true} to allow comment, returns {@code false} otherwise
+     */
+    public boolean allowComment() {
+        try {
+            final JSONObject opt = optionRepository.get(Option.ID_C_COMMENTABLE);
+
+            return opt.optBoolean(Option.OPTION_VALUE);
+        } catch (final Exception e) {
+            LOGGER.log(Level.ERROR, "Checks allow comment failed", e);
+
+            return false;
+        }
+    }
+
+    /**
      * Gets an option with the specified option id.
      *
      * @param optionId the specified option id
      * @return an option, returns {@code null} if not found
-     * @throws ServiceException service exception
      */
-    public JSONObject getOptionById(final String optionId) throws ServiceException {
+    public JSONObject getOptionById(final String optionId) {
         try {
             return optionRepository.get(optionId);
         } catch (final RepositoryException e) {
-            throw new ServiceException(e);
+            return null;
         }
     }
 
@@ -69,22 +122,12 @@ public class OptionQueryService {
      *     ....
      * }
      * </pre>, returns {@code null} if not found
-     * @throws ServiceException service exception
      */
-    public JSONObject getOptions(final String category) throws ServiceException {
+    public JSONObject getOptions(final String category) {
         try {
             return optionRepository.getOptions(category);
         } catch (final Exception e) {
-            throw new ServiceException(e);
+            return null;
         }
-    }
-
-    /**
-     * Sets the option repository with the specified option repository.
-     *
-     * @param optionRepository the specified option repository
-     */
-    public void setOptionRepository(final OptionRepository optionRepository) {
-        this.optionRepository = optionRepository;
     }
 }

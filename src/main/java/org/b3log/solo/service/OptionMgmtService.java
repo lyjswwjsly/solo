@@ -1,6 +1,6 @@
 /*
  * Solo - A small and beautiful blogging system written in Java.
- * Copyright (c) 2010-2018, b3log.org & hacpai.com
+ * Copyright (c) 2010-present, b3log.org
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
@@ -103,14 +103,5 @@ public class OptionMgmtService {
 
             throw new ServiceException(e);
         }
-    }
-
-    /**
-     * Sets the option repository with the specified option repository.
-     *
-     * @param optionRepository the specified option repository
-     */
-    public void setOptionRepository(final OptionRepository optionRepository) {
-        this.optionRepository = optionRepository;
     }
 }

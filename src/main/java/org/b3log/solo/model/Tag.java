@@ -1,6 +1,6 @@
 /*
  * Solo - A small and beautiful blogging system written in Java.
- * Copyright (c) 2010-2018, b3log.org & hacpai.com
+ * Copyright (c) 2010-present, b3log.org
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
@@ -28,7 +28,7 @@ import java.util.regex.Pattern;
  * This class defines all tag model relevant keys.
  *
  * @author <a href="http://88250.b3log.org">Liang Ding</a>
- * @version 1.1.0.0, Aug 27, 2018
+ * @version 1.1.0.4, Jul 22, 2019
  */
 public final class Tag {
 
@@ -47,20 +47,16 @@ public final class Tag {
      */
     public static final String TAG_TITLE = "tagTitle";
 
+    //// Transient ////
     /**
-     * Key of tag reference count.
+     * Key of tag reference (published article) count.
      */
-    public static final String TAG_REFERENCE_COUNT = "tagReferenceCount";
-
-    /**
-     * Key of tag reference(published article) count.
-     */
-    public static final String TAG_PUBLISHED_REFERENCE_COUNT = "tagPublishedRefCount";
+    public static final String TAG_T_PUBLISHED_REFERENCE_COUNT = "tagPublishedRefCount";
 
     /**
      * Tag title pattern string.
      */
-    public static final String TAG_TITLE_PATTERN_STR = "[\\u4e00-\\u9fa5,\\w,&,\\+,\\-,\\.]+";
+    public static final String TAG_TITLE_PATTERN_STR = "[\\u4e00-\\u9fa5\\w&#+\\-.]+";
 
     /**
      * Tag title pattern.
@@ -68,9 +64,9 @@ public final class Tag {
     public static final Pattern TAG_TITLE_PATTERN = Pattern.compile(TAG_TITLE_PATTERN_STR);
 
     /**
-     * Max tag count.
+     * Max length of a tag.
      */
-    public static final int MAX_TAG_COUNT = 4;
+    public static final int MAX_LENGTH = 16;
 
     /**
      * Formats the specified tags.
@@ -79,10 +75,11 @@ public final class Tag {
      * <li>Deduplication</li>
      * </ul>
      *
-     * @param tagStr the specified tags
+     * @param tagStr      the specified tags
+     * @param maxTagCount the specified max tag count
      * @return formatted tags string
      */
-    public static String formatTags(final String tagStr) {
+    public static String formatTags(final String tagStr, final int maxTagCount) {
         final String tagStr1 = tagStr.replaceAll("\\s+", "").replaceAll("，", ",").replaceAll("、", ",").
                 replaceAll("；", ",").replaceAll(";", ",");
         String[] tagTitles = tagStr1.split(",");
@@ -107,7 +104,7 @@ public final class Tag {
                 continue;
             }
 
-            if (StringUtils.length(title) > 12) {
+            if (StringUtils.length(title) > MAX_LENGTH) {
                 continue;
             }
 
@@ -118,7 +115,7 @@ public final class Tag {
             tagsBuilder.append(title).append(",");
             count++;
 
-            if (count >= MAX_TAG_COUNT) {
+            if (maxTagCount <= count) {
                 break;
             }
         }

@@ -1,6 +1,6 @@
 /*
  * Solo - A small and beautiful blogging system written in Java.
- * Copyright (c) 2010-2018, b3log.org & hacpai.com
+ * Copyright (c) 2010-present, b3log.org
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
@@ -24,7 +24,7 @@ import org.json.JSONObject;
  * This class defines all comment model relevant keys.
  *
  * @author <a href="http://88250.b3log.org">Liang Ding</a>
- * @version 1.2.0.0, Sep 21, 2018
+ * @version 1.2.0.2, Apr 19, 2019
  * @since 0.3.1
  */
 public final class Comment {
@@ -48,11 +48,6 @@ public final class Comment {
      * Key of comment name.
      */
     public static final String COMMENT_NAME = "commentName";
-
-    /**
-     * Key of comment email.
-     */
-    public static final String COMMENT_EMAIL = "commentEmail";
 
     /**
      * Key of comment URL.
@@ -93,11 +88,6 @@ public final class Comment {
      * Key of original comment user name.
      */
     public static final String COMMENT_ORIGINAL_COMMENT_NAME = "commentOriginalCommentName";
-
-    /**
-     * Key of comment on type.
-     */
-    public static final String COMMENT_ON_TYPE = "commentOnType";
 
     /**
      * Key of comment on id.

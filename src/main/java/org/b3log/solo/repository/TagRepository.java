@@ -1,6 +1,6 @@
 /*
  * Solo - A small and beautiful blogging system written in Java.
- * Copyright (c) 2010-2018, b3log.org & hacpai.com
+ * Copyright (c) 2010-present, b3log.org
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
@@ -22,19 +22,16 @@ import org.b3log.latke.ioc.Inject;
 import org.b3log.latke.repository.*;
 import org.b3log.latke.repository.annotation.Repository;
 import org.b3log.solo.model.Tag;
-import org.json.JSONArray;
 import org.json.JSONObject;
 
-import java.text.Collator;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 
 /**
  * Tag repository.
  *
  * @author <a href="http://88250.b3log.org">Liang Ding</a>
- * @version 1.0.0.2, Sep 30, 2018
+ * @version 1.0.0.5, Jun 20, 2019
  * @since 0.3.1
  */
 @Repository
@@ -85,28 +82,15 @@ public class TagRepository extends AbstractRepository {
     public JSONObject getByTitle(final String tagTitle) throws RepositoryException {
         final Query query = new Query().setFilter(new PropertyFilter(Tag.TAG_TITLE, FilterOperator.EQUAL, tagTitle)).setPageCount(1);
 
-        final JSONObject result = get(query);
-        final JSONArray array = result.optJSONArray(Keys.RESULTS);
-        if (0 == array.length()) {
+        final JSONObject ret = getFirst(query);
+        if (null == ret) {
             return null;
         }
 
-        return array.optJSONObject(0);
-    }
+        final String tagId = ret.optString(Keys.OBJECT_ID);
+        final int articleCount = tagArticleRepository.getPublishedArticleCount(tagId);
+        ret.put(Tag.TAG_T_PUBLISHED_REFERENCE_COUNT, articleCount);
 
-    /**
-     * Gets most used tags with the specified number.
-     *
-     * @param num the specified number
-     * @return a list of most used tags, returns an empty list if not found
-     * @throws RepositoryException repository exception
-     */
-    public List<JSONObject> getMostUsedTags(final int num) throws RepositoryException {
-        final Query query = new Query().addSort(Tag.TAG_PUBLISHED_REFERENCE_COUNT, SortDirection.DESCENDING).
-                setCurrentPageNum(1).setPageSize(num).setPageCount(1);
-        final List<JSONObject> tagJoList = getList(query);
-        Collections.sort(tagJoList, (o1, o2) -> Collator.getInstance(java.util.Locale.CHINA).compare(o1.optString(Tag.TAG_TITLE), o2.optString(Tag.TAG_TITLE)));
-
-        return tagJoList;
+        return ret;
     }
 }

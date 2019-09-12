@@ -1,6 +1,6 @@
 /*
  * Solo - A small and beautiful blogging system written in Java.
- * Copyright (c) 2010-2018, b3log.org & hacpai.com
+ * Copyright (c) 2010-present, b3log.org
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
@@ -24,7 +24,6 @@ import org.b3log.latke.logging.Logger;
 import org.b3log.latke.repository.*;
 import org.b3log.latke.repository.annotation.Repository;
 import org.b3log.solo.cache.CommentCache;
-import org.b3log.solo.model.Article;
 import org.b3log.solo.model.Comment;
 import org.json.JSONObject;
 
@@ -35,7 +34,7 @@ import java.util.List;
  * Comment repository.
  *
  * @author <a href="http://88250.b3log.org">Liang Ding</a>
- * @version 1.0.0.5, Sep 30, 2018
+ * @version 1.0.0.6, Jan 15, 2019
  * @since 0.3.1
  */
 @Repository
@@ -90,8 +89,8 @@ public class CommentRepository extends AbstractRepository {
     }
 
     @Override
-    public void update(final String id, final JSONObject comment) throws RepositoryException {
-        super.update(id, comment);
+    public void update(final String id, final JSONObject comment, final String... propertyNames) throws RepositoryException {
+        super.update(id, comment, propertyNames);
 
         comment.put(Keys.OBJECT_ID, id);
         commentCache.putComment(comment);
@@ -107,7 +106,7 @@ public class CommentRepository extends AbstractRepository {
     public List<JSONObject> getRecentComments(final int fetchSize) throws RepositoryException {
         final Query query = new Query().
                 addSort(Keys.OBJECT_ID, SortDirection.DESCENDING).
-                setCurrentPageNum(1).setPageSize(fetchSize).setPageCount(1);
+                setPage(1, fetchSize).setPageCount(1);
         final List<JSONObject> ret = getList(query);
         // Removes unpublished article related comments
         removeForUnpublishedArticles(ret);
@@ -129,7 +128,7 @@ public class CommentRepository extends AbstractRepository {
         final Query query = new Query().
                 addSort(Keys.OBJECT_ID, SortDirection.DESCENDING).
                 setFilter(new PropertyFilter(Comment.COMMENT_ON_ID, FilterOperator.EQUAL, onId)).
-                setCurrentPageNum(currentPageNum).setPageSize(pageSize).setPageCount(1);
+                setPage(currentPageNum, pageSize).setPageCount(1);
 
         return getList(query);
     }
@@ -165,14 +164,9 @@ public class CommentRepository extends AbstractRepository {
 
         while (iterator.hasNext()) {
             final JSONObject comment = iterator.next();
-            final String commentOnType = comment.optString(Comment.COMMENT_ON_TYPE);
-
-            if (Article.ARTICLE.equals(commentOnType)) {
-                final String articleId = comment.optString(Comment.COMMENT_ON_ID);
-
-                if (!articleRepository.isPublished(articleId)) {
-                    iterator.remove();
-                }
+            final String articleId = comment.optString(Comment.COMMENT_ON_ID);
+            if (!articleRepository.isPublished(articleId)) {
+                iterator.remove();
             }
         }
 

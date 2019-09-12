@@ -1,6 +1,6 @@
 /*
  * Solo - A small and beautiful blogging system written in Java.
- * Copyright (c) 2010-2018, b3log.org & hacpai.com
+ * Copyright (c) 2010-present, b3log.org
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
@@ -27,9 +27,7 @@ import org.eclipse.jetty.util.log.Log;
 import org.eclipse.jetty.util.log.Slf4jLog;
 import org.eclipse.jetty.webapp.WebAppContext;
 
-import java.awt.*;
 import java.io.File;
-import java.net.URI;
 
 /**
  * Solo with embedded Jetty, <a href="https://github.com/b3log/solo/issues/12037">standalone mode</a>.
@@ -39,7 +37,7 @@ import java.net.URI;
  * </ul>
  *
  * @author <a href="http://88250.b3log.org">Liang Ding</a>
- * @version 1.1.0.14, Sep 23, 2018
+ * @version 1.1.1.0, Mar 29, 2019
  * @since 1.2.0
  */
 public final class Starter {
@@ -53,12 +51,6 @@ public final class Starter {
     }
 
     /**
-     * Private constructor.
-     */
-    private Starter() {
-    }
-
-    /**
      * Main.
      *
      * @param args the specified arguments
@@ -68,40 +60,39 @@ public final class Starter {
         final Logger logger = Logger.getLogger(Starter.class);
 
         final Options options = new Options();
-        final Option listenPortOpt = Option.builder("lp").longOpt("listen_port").argName("LISTEN_PORT")
-                .hasArg().desc("listen port, default is 8080").build();
+        final Option listenPortOpt = Option.builder("lp").longOpt("listen_port").argName("LISTEN_PORT").
+                hasArg().desc("listen port, default is 8080").build();
         options.addOption(listenPortOpt);
 
-        final Option serverSchemeOpt = Option.builder("ss").longOpt("server_scheme").argName("SERVER_SCHEME")
-                .hasArg().desc("browser visit protocol, default is http").build();
+        final Option serverSchemeOpt = Option.builder("ss").longOpt("server_scheme").argName("SERVER_SCHEME").
+                hasArg().desc("browser visit protocol, default is http").build();
         options.addOption(serverSchemeOpt);
 
-        final Option serverHostOpt = Option.builder("sh").longOpt("server_host").argName("SERVER_HOST")
-                .hasArg().desc("browser visit domain name, default is localhost").build();
+        final Option serverHostOpt = Option.builder("sh").longOpt("server_host").argName("SERVER_HOST").
+                hasArg().desc("browser visit domain name, default is localhost").build();
         options.addOption(serverHostOpt);
 
-        final Option serverPortOpt = Option.builder("sp").longOpt("server_port").argName("SERVER_PORT")
-                .hasArg().desc("browser visit port, default is 8080").build();
+        final Option serverPortOpt = Option.builder("sp").longOpt("server_port").argName("SERVER_PORT").
+                hasArg().desc("browser visit port, default is 8080").build();
         options.addOption(serverPortOpt);
 
-        final Option staticServerSchemeOpt = Option.builder("sss").longOpt("static_server_scheme").argName("STATIC_SERVER_SCHEME")
-                .hasArg().desc("browser visit static resource protocol, default is http").build();
+        final Option staticServerSchemeOpt = Option.builder("sss").longOpt("static_server_scheme").argName("STATIC_SERVER_SCHEME").
+                hasArg().desc("browser visit static resource protocol, default is http").build();
         options.addOption(staticServerSchemeOpt);
 
-        final Option staticServerHostOpt = Option.builder("ssh").longOpt("static_server_host").argName("STATIC_SERVER_HOST")
-                .hasArg().desc("browser visit static resource domain name, default is localhost").build();
+        final Option staticServerHostOpt = Option.builder("ssh").longOpt("static_server_host").argName("STATIC_SERVER_HOST").
+                hasArg().desc("browser visit static resource domain name, default is localhost").build();
         options.addOption(staticServerHostOpt);
 
-        final Option staticServerPortOpt = Option.builder("ssp").longOpt("static_server_port").argName("STATIC_SERVER_PORT")
-                .hasArg().desc("browser visit static resource port, default is 8080").build();
+        final Option staticServerPortOpt = Option.builder("ssp").longOpt("static_server_port").argName("STATIC_SERVER_PORT").
+                hasArg().desc("browser visit static resource port, default is 8080").build();
         options.addOption(staticServerPortOpt);
 
-        final Option runtimeModeOpt = Option.builder("rm").longOpt("runtime_mode").argName("RUNTIME_MODE")
-                .hasArg().desc("runtime mode (DEVELOPMENT/PRODUCTION), default is DEVELOPMENT").build();
+        final Option runtimeModeOpt = Option.builder("rm").longOpt("runtime_mode").argName("RUNTIME_MODE").
+                hasArg().desc("runtime mode (DEVELOPMENT/PRODUCTION), default is DEVELOPMENT").build();
         options.addOption(runtimeModeOpt);
 
         options.addOption("h", "help", false, "print help for the command");
-        options.addOption("no", "not_open", false, "not auto open in the browser");
 
         final HelpFormatter helpFormatter = new HelpFormatter();
         final CommandLineParser commandLineParser = new DefaultParser();
@@ -110,8 +101,8 @@ public final class Starter {
         final boolean isWindows = System.getProperty("os.name").toLowerCase().contains("windows");
         final String cmdSyntax = isWindows ? "java -cp \"WEB-INF/lib/*;WEB-INF/classes\" org.b3log.solo.Starter"
                 : "java -cp \"WEB-INF/lib/*:WEB-INF/classes\" org.b3log.solo.Starter";
-        final String header = "\nSolo is a blogging system written in Java, feel free to create your or your team own blog.\nSolo 是一个用 Java 实现的博客系统，为你或你的团队创建个博客吧。\n\n";
-        final String footer = "\nReport bugs or request features please visit our project website: https://github.com/b3log/solo\n\n";
+        final String header = "\nSolo 是一款小而美的博客系统，专为程序员设计。\n\n";
+        final String footer = "\n提需求或报告缺陷请到项目网站: https://github.com/b3log/solo\n\n";
         try {
             commandLine = commandLineParser.parse(options, args);
         } catch (final ParseException e) {
@@ -131,18 +122,38 @@ public final class Starter {
             portArg = "8080";
         }
 
+        try {
+            Latkes.init();
+        } catch (final Exception e) {
+            logger.log(Level.ERROR, "Latke init failed, please configure latke.props or run with args, visit https://hacpai.com/article/1492881378588 for more details");
+
+            System.exit(-1);
+        }
+
         String serverScheme = commandLine.getOptionValue("server_scheme");
-        Latkes.setServerScheme(serverScheme);
+        if (null != serverScheme) {
+            Latkes.setLatkeProperty("serverScheme", serverScheme);
+        }
         String serverHost = commandLine.getOptionValue("server_host");
-        Latkes.setServerHost(serverHost);
+        if (null != serverHost) {
+            Latkes.setLatkeProperty("serverHost", serverHost);
+        }
         String serverPort = commandLine.getOptionValue("server_port");
-        Latkes.setServerPort(serverPort);
+        if (null != serverPort) {
+            Latkes.setLatkeProperty("serverPort", serverPort);
+        }
         String staticServerScheme = commandLine.getOptionValue("static_server_scheme");
-        Latkes.setStaticServerScheme(staticServerScheme);
+        if (null != staticServerScheme) {
+            Latkes.setLatkeProperty("staticServerScheme", staticServerScheme);
+        }
         String staticServerHost = commandLine.getOptionValue("static_server_host");
-        Latkes.setStaticServerHost(staticServerHost);
+        if (null != staticServerHost) {
+            Latkes.setLatkeProperty("staticServerHost", staticServerHost);
+        }
         String staticServerPort = commandLine.getOptionValue("static_server_port");
-        Latkes.setStaticServerPort(staticServerPort);
+        if (null != staticServerPort) {
+            Latkes.setLatkeProperty("staticServerPort", staticServerPort);
+        }
         String runtimeMode = commandLine.getOptionValue("runtime_mode");
         if (null != runtimeMode) {
             Latkes.setRuntimeMode(Latkes.RuntimeMode.valueOf(runtimeMode));
@@ -170,19 +181,6 @@ public final class Starter {
             System.exit(-1);
         }
 
-        serverScheme = Latkes.getServerScheme();
-        serverHost = Latkes.getServerHost();
-        serverPort = Latkes.getServerPort();
-        final String contextPath = Latkes.getContextPath();
-
-        try {
-            if (!commandLine.hasOption("no")) {
-                Desktop.getDesktop().browse(new URI(serverScheme + "://" + serverHost + ":" + serverPort + contextPath));
-            }
-        } catch (final Throwable e) {
-            // Ignored
-        }
-
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             try {
                 server.stop();
@@ -194,5 +192,11 @@ public final class Starter {
         }));
 
         server.join();
+    }
+
+    /**
+     * Private constructor.
+     */
+    private Starter() {
     }
 }

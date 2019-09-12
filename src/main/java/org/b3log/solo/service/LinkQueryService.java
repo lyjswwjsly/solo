@@ -1,6 +1,6 @@
 /*
  * Solo - A small and beautiful blogging system written in Java.
- * Copyright (c) 2010-2018, b3log.org & hacpai.com
+ * Copyright (c) 2010-present, b3log.org
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
@@ -59,13 +59,10 @@ public class LinkQueryService {
      * Gets links by the specified request json object.
      *
      * @param requestJSONObject the specified request json object, for example,
-     * <pre>
-     * {
-     *     "paginationCurrentPageNum": 1,
-     *     "paginationPageSize": 20,
-     *     "paginationWindowSize": 10
-     * }, see {@link Pagination} for more details
-     * </pre>
+     *                          "paginationCurrentPageNum": 1,
+     *                          "paginationPageSize": 20,
+     *                          "paginationWindowSize": 10
+     *                          see {@link Pagination} for more details
      * @return for example,
      * <pre>
      * {
@@ -92,8 +89,7 @@ public class LinkQueryService {
             final int pageSize = requestJSONObject.getInt(Pagination.PAGINATION_PAGE_SIZE);
             final int windowSize = requestJSONObject.getInt(Pagination.PAGINATION_WINDOW_SIZE);
 
-            final Query query = new Query().setCurrentPageNum(currentPageNum).setPageSize(pageSize).addSort(Link.LINK_ORDER,
-                SortDirection.ASCENDING);
+            final Query query = new Query().setPage(currentPageNum, pageSize).addSort(Link.LINK_ORDER, SortDirection.ASCENDING);
             final JSONObject result = linkRepository.get(query);
             final int pageCount = result.getJSONObject(Pagination.PAGINATION).getInt(Pagination.PAGINATION_PAGE_COUNT);
 
@@ -150,14 +146,5 @@ public class LinkQueryService {
 
             throw new ServiceException(e);
         }
-    }
-
-    /**
-     * Sets the link repository with the specified link repository.
-     * 
-     * @param linkRepository the specified link repository
-     */
-    public void setLinkRepository(final LinkRepository linkRepository) {
-        this.linkRepository = linkRepository;
     }
 }

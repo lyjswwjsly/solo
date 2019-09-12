@@ -1,6 +1,6 @@
 /*
  * Solo - A small and beautiful blogging system written in Java.
- * Copyright (c) 2010-2018, b3log.org & hacpai.com
+ * Copyright (c) 2010-present, b3log.org
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
@@ -27,19 +27,18 @@ import org.b3log.latke.model.Role;
 import org.b3log.latke.model.User;
 import org.b3log.latke.repository.Query;
 import org.b3log.latke.repository.SortDirection;
+import org.b3log.latke.repository.Transaction;
 import org.b3log.latke.service.ServiceException;
 import org.b3log.latke.service.annotation.Service;
 import org.b3log.latke.util.Paginator;
 import org.b3log.solo.model.Article;
 import org.b3log.solo.model.Comment;
 import org.b3log.solo.model.Common;
-import org.b3log.solo.model.Page;
 import org.b3log.solo.repository.ArticleRepository;
 import org.b3log.solo.repository.CommentRepository;
 import org.b3log.solo.repository.PageRepository;
 import org.b3log.solo.util.Emotions;
 import org.b3log.solo.util.Markdowns;
-import org.b3log.solo.util.Solos;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.jsoup.Jsoup;
@@ -53,7 +52,7 @@ import java.util.List;
  * Comment query service.
  *
  * @author <a href="http://88250.b3log.org">Liang Ding</a>
- * @version 1.3.2.3, Oct 7, 2018
+ * @version 1.3.2.7, Apr 24, 2019
  * @since 0.3.5
  */
 @Service
@@ -115,12 +114,6 @@ public class CommentQueryService {
         }
 
         final String onId = comment.optString(Comment.COMMENT_ON_ID);
-        final String onType = comment.optString(Comment.COMMENT_ON_TYPE);
-
-        if (Page.PAGE.equals(onType)) {
-            return false; // Only admin can access page comment
-        }
-
         final JSONObject article = articleRepository.get(onId);
         if (null == article) {
             return false;
@@ -145,7 +138,6 @@ public class CommentQueryService {
      *         "oId": "",
      *         "commentTitle": "",
      *         "commentName": "",
-     *         "commentEmail": "",
      *         "thumbnailUrl": "",
      *         "commentURL": "",
      *         "commentContent": "",
@@ -166,7 +158,7 @@ public class CommentQueryService {
             final int pageSize = requestJSONObject.getInt(Pagination.PAGINATION_PAGE_SIZE);
             final int windowSize = requestJSONObject.getInt(Pagination.PAGINATION_WINDOW_SIZE);
 
-            final Query query = new Query().setCurrentPageNum(currentPageNum).setPageSize(pageSize).
+            final Query query = new Query().setPage(currentPageNum, pageSize).
                     addSort(Comment.COMMENT_CREATED, SortDirection.DESCENDING);
             final JSONObject result = commentRepository.get(query);
             final JSONArray comments = result.getJSONArray(Keys.RESULTS);
@@ -176,27 +168,26 @@ public class CommentQueryService {
                 final JSONObject comment = comments.getJSONObject(i);
                 String title;
 
-                final String onType = comment.getString(Comment.COMMENT_ON_TYPE);
                 final String onId = comment.getString(Comment.COMMENT_ON_ID);
+                final JSONObject article = articleRepository.get(onId);
+                if (null == article) {
+                    // 某种情况下导致的数据不一致：文章已经被删除了，但是评论还在
+                    // 为了保持数据一致性，需要删除该条评论 https://hacpai.com/article/1556060195022
+                    final Transaction transaction = commentRepository.beginTransaction();
+                    final String commentId = comment.optString(Keys.OBJECT_ID);
+                    commentRepository.remove(commentId);
+                    transaction.commit();
 
-                if (Article.ARTICLE.equals(onType)) {
-                    final JSONObject article = articleRepository.get(onId);
-
-                    title = article.getString(Article.ARTICLE_TITLE);
-                    comment.put(Common.TYPE, Common.ARTICLE_COMMENT_TYPE);
-                } else { // It's a comment of page
-                    final JSONObject page = pageRepository.get(onId);
-
-                    title = page.getString(Page.PAGE_TITLE);
-                    comment.put(Common.TYPE, Common.PAGE_COMMENT_TYPE);
+                    continue;
                 }
 
+                title = article.getString(Article.ARTICLE_TITLE);
+                comment.put(Common.TYPE, Common.ARTICLE_COMMENT_TYPE);
                 comment.put(Common.COMMENT_TITLE, title);
 
                 String commentContent = comment.optString(Comment.COMMENT_CONTENT);
-                commentContent = Emotions.convert(commentContent);
                 commentContent = Markdowns.toHTML(commentContent);
-                commentContent = Jsoup.clean(commentContent, Whitelist.relaxed());
+                commentContent = Markdowns.clean(commentContent);
                 comment.put(Comment.COMMENT_CONTENT, commentContent);
 
                 String commentName = comment.optString(Comment.COMMENT_NAME);
@@ -248,21 +239,14 @@ public class CommentQueryService {
                 comment.put(Comment.COMMENT_URL, url);
                 comment.put(Common.IS_REPLY, false); // Assumes this comment is not a reply
 
-                final String thumbnailURL = comment.optString(Comment.COMMENT_THUMBNAIL_URL);
-                if (StringUtils.isBlank(thumbnailURL)) {
-                    final String email = comment.optString(Comment.COMMENT_EMAIL);
-                    comment.put(Comment.COMMENT_THUMBNAIL_URL, Solos.getGravatarURL(email, "128"));
-                }
-
                 if (StringUtils.isNotBlank(comment.optString(Comment.COMMENT_ORIGINAL_COMMENT_ID))) {
                     // This comment is a reply
                     comment.put(Common.IS_REPLY, true);
                 }
 
                 String commentContent = comment.optString(Comment.COMMENT_CONTENT);
-                commentContent = Emotions.convert(commentContent);
                 commentContent = Markdowns.toHTML(commentContent);
-                commentContent = Jsoup.clean(commentContent, Whitelist.relaxed());
+                commentContent = Markdowns.clean(commentContent);
                 comment.put(Comment.COMMENT_CONTENT, commentContent);
 
                 String commentName = comment.optString(Comment.COMMENT_NAME);
@@ -277,32 +261,5 @@ public class CommentQueryService {
             LOGGER.log(Level.ERROR, "Gets comments failed", e);
             throw new ServiceException(e);
         }
-    }
-
-    /**
-     * Sets the article repository with the specified article repository.
-     *
-     * @param articleRepository the specified article repository
-     */
-    public void setArticleRepository(final ArticleRepository articleRepository) {
-        this.articleRepository = articleRepository;
-    }
-
-    /**
-     * Set the page repository with the specified page repository.
-     *
-     * @param pageRepository the specified page repository
-     */
-    public void setPageRepository(final PageRepository pageRepository) {
-        this.pageRepository = pageRepository;
-    }
-
-    /**
-     * Sets the comment repository with the specified comment repository.
-     *
-     * @param commentRepository the specified comment repository
-     */
-    public void setCommentRepository(final CommentRepository commentRepository) {
-        this.commentRepository = commentRepository;
     }
 }

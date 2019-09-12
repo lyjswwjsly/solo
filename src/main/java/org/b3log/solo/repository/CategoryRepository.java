@@ -1,6 +1,6 @@
 /*
  * Solo - A small and beautiful blogging system written in Java.
- * Copyright (c) 2010-2018, b3log.org & hacpai.com
+ * Copyright (c) 2010-present, b3log.org
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
@@ -18,22 +18,21 @@
 package org.b3log.solo.repository;
 
 import org.b3log.latke.Keys;
+import org.b3log.latke.ioc.BeanManager;
 import org.b3log.latke.repository.*;
 import org.b3log.latke.repository.annotation.Repository;
+import org.b3log.solo.model.Article;
 import org.b3log.solo.model.Category;
-import org.b3log.solo.model.Tag;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-import java.text.Collator;
-import java.util.Collections;
 import java.util.List;
 
 /**
  * Category repository.
  *
  * @author <a href="http://88250.b3log.org">Liang Ding</a>
- * @version 1.2.0.2, Sep 30, 2018
+ * @version 1.2.0.3, Sep 11, 2019
  * @since 2.0.0
  */
 @Repository
@@ -113,7 +112,7 @@ public class CategoryRepository extends AbstractRepository {
         }
 
         final Query query = new Query().setFilter(new PropertyFilter(Category.CATEGORY_ORDER, FilterOperator.LESS_THAN, category.optInt(Category.CATEGORY_ORDER))).
-                addSort(Category.CATEGORY_ORDER, SortDirection.DESCENDING).setCurrentPageNum(1).setPageSize(1);
+                addSort(Category.CATEGORY_ORDER, SortDirection.DESCENDING).setPage(1, 1);
         final JSONObject result = get(query);
         final JSONArray array = result.optJSONArray(Keys.RESULTS);
         if (1 != array.length()) {
@@ -137,7 +136,7 @@ public class CategoryRepository extends AbstractRepository {
         }
 
         final Query query = new Query().setFilter(new PropertyFilter(Category.CATEGORY_ORDER, FilterOperator.GREATER_THAN, category.optInt(Category.CATEGORY_ORDER))).
-                addSort(Category.CATEGORY_ORDER, SortDirection.ASCENDING).setCurrentPageNum(1).setPageSize(1);
+                addSort(Category.CATEGORY_ORDER, SortDirection.ASCENDING).setPage(1, 1);
         final JSONObject result = get(query);
         final JSONArray array = result.optJSONArray(Keys.RESULTS);
         if (1 != array.length()) {
@@ -174,9 +173,28 @@ public class CategoryRepository extends AbstractRepository {
      */
     public List<JSONObject> getMostUsedCategories(final int num) throws RepositoryException {
         final Query query = new Query().addSort(Category.CATEGORY_ORDER, SortDirection.ASCENDING).
-                setCurrentPageNum(1).setPageSize(num).setPageCount(1);
+                setPage(1, num).setPageCount(1);
         final List<JSONObject> ret = getList(query);
-        Collections.sort(ret, (o1, o2) -> Collator.getInstance(java.util.Locale.CHINA).compare(o1.optString(Tag.TAG_TITLE), o2.optString(Tag.TAG_TITLE)));
+
+        final BeanManager beanManager = BeanManager.getInstance();
+        final ArticleRepository articleRepository = beanManager.getReference(ArticleRepository.class);
+        final TagArticleRepository tagArticleRepository = beanManager.getReference(TagArticleRepository.class);
+        final CategoryTagRepository categoryTagRepository = beanManager.getReference(CategoryTagRepository.class);
+
+        for (final JSONObject category : ret) {
+            final String categoryId = category.optString(Keys.OBJECT_ID);
+            final StringBuilder queryCount = new StringBuilder("SELECT count(DISTINCT(b3_solo_article.oId)) as C FROM ");
+            final StringBuilder queryStr = new StringBuilder(articleRepository.getName() + " AS b3_solo_article,").
+                    append(tagArticleRepository.getName() + " AS b3_solo_tag_article").
+                    append(" WHERE b3_solo_article.oId=b3_solo_tag_article.article_oId ").
+                    append(" AND b3_solo_article.articleStatus=").append(Article.ARTICLE_STATUS_C_PUBLISHED).
+                    append(" AND ").append("b3_solo_tag_article.tag_oId").append(" IN (").
+                    append("SELECT tag_oId FROM ").append(categoryTagRepository.getName() + " AS b3_solo_category_tag WHERE b3_solo_category_tag.category_oId = ").
+                    append(categoryId).append(")");
+            final List<JSONObject> articlesCountResult = select(queryCount.append(queryStr.toString()).toString());
+            final int articleCount = articlesCountResult == null ? 0 : articlesCountResult.get(0).optInt("C");
+            category.put(Category.CATEGORY_T_PUBLISHED_ARTICLE_COUNT, articleCount);
+        }
 
         return ret;
     }

@@ -1,6 +1,6 @@
 /*
  * Solo - A small and beautiful blogging system written in Java.
- * Copyright (c) 2010-2018, b3log.org & hacpai.com
+ * Copyright (c) 2010-present, b3log.org
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
@@ -20,7 +20,7 @@
  *
  * @author <a href="http://vanessa.b3log.org">Liyuan Li</a>
  * @author <a href="http://88250.b3log.org">Liang Ding</a>
- * @version 1.1.2.0, Sep 10, 2018
+ * @version 1.1.2.1, Oct 24, 2018
  */
 
 /* link-list 相关操作 */
@@ -61,6 +61,7 @@ admin.linkList = {
         this.getList(page);
         
         $("#updateLink").dialog({
+            title:  $("#updateLink").data('title'),
             width: 700,
             height: 290,
             "modal": true,
@@ -82,7 +83,7 @@ admin.linkList = {
         var that = this;
         
         $.ajax({
-            url: latkeConfig.servePath + "/console/links/" + pageNum + "/" + Label.PAGE_SIZE + "/" +  Label.WINDOW_SIZE,
+            url: Label.servePath + "/console/links/" + pageNum + "/" + Label.PAGE_SIZE + "/" +  Label.WINDOW_SIZE,
             type: "GET",
             cache: false,
             success: function(result, textStatus){
@@ -150,7 +151,7 @@ admin.linkList = {
             };
             
             $.ajax({
-                url: latkeConfig.servePath + "/console/link/",
+                url: Label.servePath + "/console/link/",
                 type: "POST",
                 cache: false,
                 data: JSON.stringify(requestJSONObject),
@@ -190,7 +191,7 @@ admin.linkList = {
         $("#updateLink").dialog("open");
         
         $.ajax({
-            url: latkeConfig.servePath + "/console/link/" + id,
+            url: Label.servePath + "/console/link/" + id,
             type: "GET",
             cache: false,
             success: function(result, textStatus){
@@ -228,7 +229,7 @@ admin.linkList = {
             };
             
             $.ajax({
-                url: latkeConfig.servePath + "/console/link/",
+                url: Label.servePath + "/console/link/",
                 type: "PUT",
                 cache: false,
                 data: JSON.stringify(requestJSONObject),
@@ -260,7 +261,7 @@ admin.linkList = {
             $("#tipMsg").text("");
             
             $.ajax({
-                url: latkeConfig.servePath + "/console/link/" + id,
+                url: Label.servePath + "/console/link/" + id,
                 type: "DELETE",
                 cache: false,
                 success: function(result, textStatus){
@@ -326,7 +327,7 @@ admin.linkList = {
         };
         
         $.ajax({
-            url: latkeConfig.servePath + "/console/link/order/",
+            url: Label.servePath + "/console/link/order/",
             type: "PUT",
             cache: false,
             data: JSON.stringify(requestJSONObject),

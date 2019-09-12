@@ -1,6 +1,6 @@
 /*
  * Solo - A small and beautiful blogging system written in Java.
- * Copyright (c) 2010-2018, b3log.org & hacpai.com
+ * Copyright (c) 2010-present, b3log.org
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
@@ -35,7 +35,7 @@ import java.util.regex.Pattern;
  * Permalink query service.
  *
  * @author <a href="http://88250.b3log.org">Liang Ding</a>
- * @version 1.0.0.5, Sep 26, 2018
+ * @version 1.0.0.7, Apr 19, 2019
  * @since 0.6.1
  */
 @Service
@@ -62,12 +62,12 @@ public class PermalinkQueryService {
      * Reserved permalinks.
      */
     public static final String[] RESERVED_LINKS = new String[]{
-            "/", "/article", "/tags.html", "/tags", "/page", "/atom.xml", "/rss.xml", "/get-random-articles.do", "/captcha.do", "/kill-browser",
-            "/add-article-comment.do", "/add-article-from-symphony-comment.do", "/add-page-comment.do", "/get-article-content", "/sitemap.xml",
-            "/login", "/logout", "/forgot", "/get-article-content", "/admin-index.do", "/admin-article.do", "/admin-article-list.do",
+            "/", "/article", "/tags.html", "/tags", "/page", "/atom.xml", "/rss.xml", "/articles/random", "/captcha", "/kill-browser",
+            "/article/comments", "/add-article-from-symphony-comment.do", "/page/comments", "/get-article-content", "/sitemap.xml",
+            "/logout", "/get-article-content", "/admin-index.do", "/admin-article.do", "/admin-article-list.do",
             "/admin-link-list.do", "/admin-preference.do", "/admin-file-list.do", "/admin-page-list.do", "/admin-others.do",
             "/admin-draft-list.do", "/admin-user-list.do", "/admin-plugin-list.do", "/admin-main.do", "/admin-about.do", "/admin-label",
-            "/admin-about.do", "/init", "/register", "/upload"
+            "/admin-about.do", "/start"
     };
 
     /**
@@ -78,19 +78,6 @@ public class PermalinkQueryService {
      */
     public static boolean matchDefaultArticlePermalinkFormat(final String permalink) {
         final Pattern pattern = Pattern.compile("/articles/\\d{4}/\\d{2}/\\d{2}/\\d+\\.html");
-        final Matcher matcher = pattern.matcher(permalink);
-
-        return matcher.matches();
-    }
-
-    /**
-     * Checks whether the specified page permalink matches the system generated format pattern ("/pages/${pageId}.html").
-     *
-     * @param permalink the specified permalink
-     * @return {@code true} if matches, returns {@code false} otherwise
-     */
-    public static boolean matchDefaultPagePermalinkFormat(final String permalink) {
-        final Pattern pattern = Pattern.compile("/pages/\\d+\\.html");
         final Matcher matcher = pattern.matcher(permalink);
 
         return matcher.matches();
@@ -134,10 +121,6 @@ public class PermalinkQueryService {
     public static boolean invalidPagePermalinkFormat(final String permalink) {
         if (StringUtils.isBlank(permalink)) {
             return true;
-        }
-
-        if (matchDefaultPagePermalinkFormat(permalink)) {
-            return false;
         }
 
         return invalidUserDefinedPermalinkFormat(permalink);
@@ -216,23 +199,5 @@ public class PermalinkQueryService {
 
             return true;
         }
-    }
-
-    /**
-     * Sets the article repository with the specified article repository.
-     *
-     * @param articleRepository the specified article repository
-     */
-    public void setArticleRepository(final ArticleRepository articleRepository) {
-        this.articleRepository = articleRepository;
-    }
-
-    /**
-     * Set the page repository with the specified page repository.
-     *
-     * @param pageRepository the specified page repository
-     */
-    public void setPageRepository(final PageRepository pageRepository) {
-        this.pageRepository = pageRepository;
     }
 }

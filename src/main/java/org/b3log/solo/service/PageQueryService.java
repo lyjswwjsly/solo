@@ -1,6 +1,6 @@
 /*
  * Solo - A small and beautiful blogging system written in Java.
- * Copyright (c) 2010-2018, b3log.org & hacpai.com
+ * Copyright (c) 2010-present, b3log.org
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
@@ -38,7 +38,7 @@ import java.util.List;
  * Page query service.
  *
  * @author <a href="http://88250.b3log.org">Liang Ding</a>
- * @version 1.0.0.0, Oct 27, 2011
+ * @version 1.0.0.1, Apr 19, 2019
  * @since 0.4.0
  */
 @Service
@@ -65,12 +65,8 @@ public class PageQueryService {
      *     "page": {
      *         "oId": "",
      *         "pageTitle": "",
-     *         "pageContent": ""
      *         "pageOrder": int,
      *         "pagePermalink": "",
-     *         "pageCommentCount": int,
-     *         "pageCommentable": boolean,
-     *         "pageType": "",
      *         "pageOpenTarget": "",
      *         "pageIcon": ""
      *     }
@@ -99,15 +95,12 @@ public class PageQueryService {
 
     /**
      * Gets pages by the specified request json object.
-     * 
+     *
      * @param requestJSONObject the specified request json object, for example,
-     * <pre>
-     * {
-     *     "paginationCurrentPageNum": 1,
-     *     "paginationPageSize": 20,
-     *     "paginationWindowSize": 10
-     * }, see {@link Pagination} for more details
-     * </pre>
+     *                          "paginationCurrentPageNum": 1,
+     *                          "paginationPageSize": 20,
+     *                          "paginationWindowSize": 10
+     *                          see {@link Pagination} for more details
      * @return for example,
      * <pre>
      * {
@@ -118,11 +111,8 @@ public class PageQueryService {
      *     "pages": [{
      *         "oId": "",
      *         "pageTitle": "",
-     *         "pageCommentCount": int,
      *         "pageOrder": int,
      *         "pagePermalink": "",
-     *         "pageCommentable": boolean,
-     *         "pageType": "",
      *         "pageOpenTarget": ""
      *      }, ....]
      * }
@@ -138,8 +128,7 @@ public class PageQueryService {
             final int pageSize = requestJSONObject.getInt(Pagination.PAGINATION_PAGE_SIZE);
             final int windowSize = requestJSONObject.getInt(Pagination.PAGINATION_WINDOW_SIZE);
 
-            final Query query = new Query().setCurrentPageNum(currentPageNum).setPageSize(pageSize).addSort(Page.PAGE_ORDER, SortDirection.ASCENDING).setPageCount(
-                1);
+            final Query query = new Query().setPage(currentPageNum, pageSize).addSort(Page.PAGE_ORDER, SortDirection.ASCENDING).setPageCount(1);
             final JSONObject result = pageRepository.get(query);
             final int pageCount = result.getJSONObject(Pagination.PAGINATION).getInt(Pagination.PAGINATION_PAGE_COUNT);
 
@@ -150,13 +139,6 @@ public class PageQueryService {
             pagination.put(Pagination.PAGINATION_PAGE_NUMS, pageNums);
 
             final JSONArray pages = result.getJSONArray(Keys.RESULTS);
-
-            for (int i = 0; i < pages.length(); i++) { // remove unused properties
-                final JSONObject page = pages.getJSONObject(i);
-
-                page.remove(Page.PAGE_CONTENT);
-            }
-
             ret.put(Pagination.PAGINATION, pagination);
             ret.put(Page.PAGES, pages);
 
@@ -166,14 +148,5 @@ public class PageQueryService {
 
             throw new ServiceException(e);
         }
-    }
-
-    /**
-     * Set the page repository with the specified page repository.
-     * 
-     * @param pageRepository the specified page repository
-     */
-    public void setPageRepository(final PageRepository pageRepository) {
-        this.pageRepository = pageRepository;
     }
 }

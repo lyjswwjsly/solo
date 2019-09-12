@@ -1,6 +1,6 @@
 /*
  * Solo - A small and beautiful blogging system written in Java.
- * Copyright (c) 2010-2018, b3log.org & hacpai.com
+ * Copyright (c) 2010-present, b3log.org
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
@@ -21,11 +21,56 @@ package org.b3log.solo.model;
  * This class defines all common model relevant keys.
  *
  * @author <a href="http://88250.b3log.org">Liang Ding</a>
- * @author <a href="mailto:dongxu.wang@acm.org">Dongxu Wang</a>
- * @version 1.6.0.0, Sep 12, 2017
+ * @author <a href="https://hacpai.com/member/e">Dongxu Wang</a>
+ * @version 1.7.0.5, Mar 29, 2019
  * @since 0.3.1
  */
 public final class Common {
+
+    /**
+     * Key of skin cookie name.
+     */
+    public static final String COOKIE_NAME_SKIN = "skin";
+
+    /**
+     * Key of mobile skin cookie name.
+     */
+    public static final String COOKIE_NAME_MOBILE_SKIN = "mobile-skin";
+
+    /**
+     * Key of favicon URL.
+     */
+    public static final String FAVICON_URL = "faviconURL";
+
+    /**
+     * Key of URL.
+     */
+    public static final String URL = "url";
+
+    /**
+     * Key of referer.
+     */
+    public static final String REFERER = "referer";
+
+    /**
+     * Key of upload msg.
+     */
+    public static final String UPLOAD_MSG = "uploadMsg";
+
+    /**
+     * Key of upload URL.
+     */
+    public static final String UPLOAD_URL = "uploadURL";
+
+    /**
+     * Key of upload token.
+     */
+    public static final String UPLOAD_TOKEN = "uploadToken";
+
+    /**
+     * Key of marked engine available.
+     */
+    public static final String MARKED_AVAILABLE = "markedAvailable";
 
     /**
      * Key of keyword.
@@ -223,16 +268,6 @@ public final class Common {
     public static final String URI = "URI";
 
     /**
-     * Key of blog.
-     */
-    public static final String BLOG = "blog";
-
-    /**
-     * Key of blog version.
-     */
-    public static final String BLOG_VERSION = "blogVersion";
-
-    /**
      * Key of post to community.
      */
     public static final String POST_TO_COMMUNITY = "postToCommunity";
@@ -286,11 +321,6 @@ public final class Common {
      * Key of unused tags.
      */
     public static final String UNUSED_TAGS = "unusedTags";
-
-    /**
-     * Key of go to.
-     */
-    public static final String GOTO = "goto";
 
     /**
      * Key of online visitor count.

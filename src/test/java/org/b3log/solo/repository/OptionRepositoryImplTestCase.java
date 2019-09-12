@@ -1,6 +1,6 @@
 /*
  * Solo - A small and beautiful blogging system written in Java.
- * Copyright (c) 2010-2018, b3log.org & hacpai.com
+ * Copyright (c) 2010-present, b3log.org
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
@@ -21,7 +21,6 @@ import org.b3log.latke.Keys;
 import org.b3log.latke.repository.Transaction;
 import org.b3log.solo.AbstractTestCase;
 import org.b3log.solo.model.Option;
-import org.b3log.solo.repository.OptionRepository;
 import org.json.JSONObject;
 import org.testng.Assert;
 import org.testng.annotations.Test;
@@ -30,7 +29,7 @@ import org.testng.annotations.Test;
  * {@link OptionRepository} test case.
  *
  * @author <a href="http://88250.b3log.org">Liang Ding</a>
- * @version 1.0.0.0, Apr 19, 2013
+ * @version 1.0.0.1, Jan 29, 2019
  * @since 0.6.0
  */
 @Test(suiteName = "repository")
@@ -38,7 +37,7 @@ public final class OptionRepositoryImplTestCase extends AbstractTestCase {
 
     /**
      * Tests.
-     * 
+     *
      * @throws Exception exception
      */
     @Test
@@ -46,8 +45,8 @@ public final class OptionRepositoryImplTestCase extends AbstractTestCase {
         final OptionRepository optionRepository = getOptionRepository();
 
         final JSONObject option = new JSONObject();
-        option.put(Keys.OBJECT_ID, Option.ID_C_BROADCAST_CHANCE_EXPIRATION_TIME);
-        option.put(Option.OPTION_CATEGORY, Option.CATEGORY_C_BROADCAST);
+        option.put(Keys.OBJECT_ID, Option.ID_C_BLOG_TITLE);
+        option.put(Option.OPTION_CATEGORY, Option.CATEGORY_C_PREFERENCE);
         option.put(Option.OPTION_VALUE, 0L);
 
         Transaction transaction = optionRepository.beginTransaction();
@@ -55,6 +54,6 @@ public final class OptionRepositoryImplTestCase extends AbstractTestCase {
         transaction.commit();
 
         Assert.assertEquals(optionRepository.count(), 1);
-        Assert.assertNotNull(optionRepository.get(Option.ID_C_BROADCAST_CHANCE_EXPIRATION_TIME));
+        Assert.assertNotNull(optionRepository.get(Option.ID_C_BLOG_TITLE));
     }
 }

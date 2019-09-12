@@ -1,6 +1,6 @@
 /*
  * Solo - A small and beautiful blogging system written in Java.
- * Copyright (c) 2010-2018, b3log.org & hacpai.com
+ * Copyright (c) 2010-present, b3log.org
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
@@ -17,9 +17,6 @@
  */
 package org.b3log.solo.service;
 
-import jodd.http.HttpRequest;
-import org.apache.commons.codec.digest.DigestUtils;
-import org.apache.commons.lang.StringUtils;
 import org.apache.commons.lang.time.DateFormatUtils;
 import org.apache.commons.lang.time.DateUtils;
 import org.b3log.latke.Keys;
@@ -32,10 +29,10 @@ import org.b3log.latke.model.User;
 import org.b3log.latke.plugin.PluginManager;
 import org.b3log.latke.repository.RepositoryException;
 import org.b3log.latke.repository.Transaction;
+import org.b3log.latke.repository.jdbc.util.Connections;
 import org.b3log.latke.repository.jdbc.util.JdbcRepositories;
 import org.b3log.latke.repository.jdbc.util.JdbcRepositories.CreateTableResult;
 import org.b3log.latke.service.LangPropsService;
-import org.b3log.latke.service.ServiceException;
 import org.b3log.latke.service.annotation.Service;
 import org.b3log.latke.util.Ids;
 import org.b3log.solo.SoloServletListener;
@@ -43,21 +40,19 @@ import org.b3log.solo.model.*;
 import org.b3log.solo.model.Option.DefaultPreference;
 import org.b3log.solo.repository.*;
 import org.b3log.solo.util.Images;
-import org.b3log.solo.util.Skins;
-import org.b3log.solo.util.Solos;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.sql.Connection;
 import java.text.ParseException;
 import java.util.List;
-import java.util.Set;
 
 /**
  * Solo initialization service.
  *
  * @author <a href="http://88250.b3log.org">Liang Ding</a>
- * @version 1.5.2.23, Sep 16, 2018
+ * @version 1.5.2.34, Aug 18, 2019
  * @since 0.4.0
  */
 @Service
@@ -67,16 +62,6 @@ public class InitService {
      * Logger.
      */
     private static final Logger LOGGER = Logger.getLogger(InitService.class);
-
-    /**
-     * Maximum count of initialization.
-     */
-    private static final int MAX_RETRIES_CNT = 3;
-
-    /**
-     * Initialized time zone id.
-     */
-    private static final String INIT_TIME_ZONE_ID = "Asia/Shanghai";
 
     /**
      * Option repository.
@@ -151,53 +136,59 @@ public class InitService {
     private PluginManager pluginManager;
 
     /**
+     * Flag of init status.
+     */
+    private static boolean inited;
+
+    /**
+     * Flag of printed init prompt.
+     */
+    private static boolean printedInitMsg;
+
+    /**
      * Determines Solo had been initialized.
      *
      * @return {@code true} if it had been initialized, {@code false} otherwise
      */
     public boolean isInited() {
-        try {
-            final JSONObject admin = userRepository.getAdmin();
+        if (inited) {
+            return true;
+        }
 
-            return null != admin;
-        } catch (final RepositoryException e) {
-            LOGGER.log(Level.WARN, "Solo has not been initialized");
+        try {
+            inited = null != optionRepository.get(Option.ID_C_VERSION);
+            if (!inited && !printedInitMsg) {
+                LOGGER.log(Level.WARN, "Solo has not been initialized, please open your browser to init Solo");
+                printedInitMsg = true;
+            }
+
+            return inited;
+        } catch (final Exception e) {
+            LOGGER.log(Level.ERROR, "Check init failed", e);
+
+            System.exit(-1);
             return false;
         }
     }
 
     /**
-     * Initializes Solo.
-     * <p>
-     * Initializes the followings in sequence:
-     * <ol>
-     * <li>Statistic</li>
-     * <li>Preference</li>
-     * <li>Administrator</li>
-     * </ol>
-     * </p>
-     * <p>
-     * We will try to initialize Solo 3 times at most.
-     * </p>
-     * <p>
-     * Posts "Hello World!" article and its comment while Solo initialized.
-     * </p>
-     *
-     * @param requestJSONObject the specified request json object, for example,
-     *                          {
-     *                          "userName": "",
-     *                          "userEmail": "",
-     *                          "userPassword": "", // Unhashed
-     *                          "userAvatar": "" // optional
-     *                          }
-     * @throws ServiceException service exception
+     * Initializes database tables.
      */
-    public void init(final JSONObject requestJSONObject) throws ServiceException {
-        if (isInited()) {
-            return;
+    public void initTables() {
+        try (final Connection chk = Connections.getConnection()) {
+            final String tablePrefix = Latkes.getLocalProperty("jdbc.tablePrefix") + "_";
+            final boolean userTableExist = JdbcRepositories.existTable(tablePrefix + User.USER);
+            final boolean optionTableExist = JdbcRepositories.existTable(tablePrefix + Option.OPTION);
+            if (userTableExist && optionTableExist) {
+                return;
+            }
+        } catch (final Exception e) {
+            LOGGER.log(Level.ERROR, "Check tables failed, please make sure database existed and database configuration [jdbc.*] in local.props is correct [msg=" + e.getMessage() + "]");
+
+            System.exit(-1);
         }
 
-        LOGGER.log(Level.DEBUG, "Solo is running with database [{0}], creates all tables", Latkes.getRuntimeDatabase());
+        LOGGER.info("It's your first time setup Solo, initialize tables in database [" + Latkes.getRuntimeDatabase() + "]");
 
         if (Latkes.RuntimeDatabase.H2 == Latkes.getRuntimeDatabase()) {
             String dataDir = Latkes.getLocalProperty("jdbc.URL");
@@ -208,61 +199,44 @@ public class InitService {
 
         final List<CreateTableResult> createTableResults = JdbcRepositories.initAllTables();
         for (final CreateTableResult createTableResult : createTableResults) {
-            LOGGER.log(Level.DEBUG, "Create table result [tableName={0}, isSuccess={1}]",
+            LOGGER.log(Level.DEBUG, "Creates table result [tableName={0}, isSuccess={1}]",
                     createTableResult.getName(), createTableResult.isSuccess());
         }
+    }
 
-        int retries = MAX_RETRIES_CNT;
-
-        while (true) {
-            final Transaction transaction = userRepository.beginTransaction();
-
-            try {
-                final JSONObject statistic = optionRepository.get(Option.ID_C_STATISTIC_BLOG_ARTICLE_COUNT);
-                if (null == statistic) {
-                    initStatistic();
-                    initPreference(requestJSONObject);
-                    initReplyNotificationTemplate();
-                    initAdmin(requestJSONObject);
-                    initLink();
-                }
-
-                transaction.commit();
-
-                break;
-            } catch (final Exception e) {
-                if (0 == retries) {
-                    LOGGER.log(Level.ERROR, "Initialize Solo error", e);
-                    throw new ServiceException("Initialize Solo error: " + e.getMessage());
-                }
-
-                // Allow retry to occur
-                --retries;
-                LOGGER.log(Level.WARN, "Retrying to init Solo [retries={0}]", retries);
-            } finally {
-                if (transaction.isActive()) {
-                    transaction.rollback();
-                }
-            }
+    /**
+     * Initializes Solo.
+     *
+     * @param requestJSONObject the specified request json object, for example,
+     *                          {
+     *                          "userName": "",
+     *                          "userAvatar": "", // optional
+     *                          "userB3Key": "", // optional
+     *                          "userGitHubId": "" // optional
+     *                          }
+     */
+    public void init(final JSONObject requestJSONObject) {
+        if (isInited()) {
+            return;
         }
 
         final Transaction transaction = userRepository.beginTransaction();
-
         try {
+            initStatistic();
+            initOptions(requestJSONObject);
+            initAdmin(requestJSONObject);
+            initLink();
             helloWorld();
+
             transaction.commit();
-        } catch (final Exception e) {
+        } catch (final Throwable e) {
+            LOGGER.log(Level.ERROR, "Initializes Solo failed", e);
+
+            System.exit(-1);
+        } finally {
             if (transaction.isActive()) {
                 transaction.rollback();
             }
-
-            LOGGER.log(Level.ERROR, "Hello World error?!", e);
-        }
-
-        try {
-            HttpRequest.get(Latkes.getServePath() + "/blog/symphony/user").header("User-Agent", Solos.USER_AGENT).sendAsync();
-        } catch (final Exception e) {
-            LOGGER.log(Level.TRACE, "Sync account failed");
         }
 
         pluginManager.load();
@@ -277,15 +251,15 @@ public class InitService {
         final JSONObject article = new JSONObject();
 
         article.put(Article.ARTICLE_TITLE, langPropsService.get("helloWorld.title"));
-        final String content = "![](" + Images.randImage() + "?imageView2/1/w/960/h/520/interlace/1/q/100) \n\n" +
+        final String content = "![](" + Images.imageSize(Images.randImage(), Article.ARTICLE_THUMB_IMG_WIDTH, Article.ARTICLE_THUMB_IMG_HEIGHT) + ") \n\n" +
                 langPropsService.get("helloWorld.content");
 
+        article.put(Article.ARTICLE_ABSTRACT_TEXT, Article.getAbstractText(content));
         article.put(Article.ARTICLE_ABSTRACT, content);
         article.put(Article.ARTICLE_CONTENT, content);
         article.put(Article.ARTICLE_TAGS_REF, "Solo");
         article.put(Article.ARTICLE_PERMALINK, "/hello-solo");
-        article.put(Article.ARTICLE_IS_PUBLISHED, true);
-        article.put(Article.ARTICLE_HAD_BEEN_PUBLISHED, true);
+        article.put(Article.ARTICLE_STATUS, Article.ARTICLE_STATUS_C_PUBLISHED);
         article.put(Article.ARTICLE_SIGN_ID, "1");
         article.put(Article.ARTICLE_COMMENT_COUNT, 1);
         article.put(Article.ARTICLE_VIEW_COUNT, 0);
@@ -298,28 +272,29 @@ public class InitService {
         article.put(Article.ARTICLE_AUTHOR_ID, admin.optString(Keys.OBJECT_ID));
         article.put(Article.ARTICLE_COMMENTABLE, true);
         article.put(Article.ARTICLE_VIEW_PWD, "");
-        article.put(Article.ARTICLE_EDITOR_TYPE, DefaultPreference.DEFAULT_EDITOR_TYPE);
+        final String articleImg1URL = Article.getArticleImg1URL(article);
+        article.put(Article.ARTICLE_IMG1_URL, articleImg1URL);
 
         final String articleId = addHelloWorldArticle(article);
 
         final JSONObject comment = new JSONObject();
         comment.put(Keys.OBJECT_ID, articleId);
-        comment.put(Comment.COMMENT_NAME, "Daniel");
-        comment.put(Comment.COMMENT_EMAIL, "d@b3log.org");
+        comment.put(Comment.COMMENT_NAME, "88250");
         comment.put(Comment.COMMENT_URL, "https://hacpai.com/member/88250");
         comment.put(Comment.COMMENT_CONTENT, langPropsService.get("helloWorld.comment.content"));
         comment.put(Comment.COMMENT_ORIGINAL_COMMENT_ID, "");
         comment.put(Comment.COMMENT_ORIGINAL_COMMENT_NAME, "");
-        comment.put(Comment.COMMENT_THUMBNAIL_URL, Solos.GRAVATAR + "59a5e8209c780307dbe9c9ba728073f5??s=60&r=G");
+        comment.put(Comment.COMMENT_THUMBNAIL_URL, "https://img.hacpai.com/avatar/1353745196354_1535379434567.png?imageView2/1/w/64/h/64/q/100");
         comment.put(Comment.COMMENT_CREATED, now);
         comment.put(Comment.COMMENT_ON_ID, articleId);
-        comment.put(Comment.COMMENT_ON_TYPE, Article.ARTICLE);
         final String commentId = Ids.genTimeMillisId();
         comment.put(Keys.OBJECT_ID, commentId);
         final String commentSharpURL = Comment.getCommentSharpURLForArticle(article, commentId);
         comment.put(Comment.COMMENT_SHARP_URL, commentSharpURL);
 
         commentRepository.add(comment);
+
+        LOGGER.info("Hello World!");
     }
 
     /**
@@ -335,29 +310,12 @@ public class InitService {
         try {
             article.put(Keys.OBJECT_ID, ret);
 
-            // Step 1: Add tags
             final String tagsString = article.optString(Article.ARTICLE_TAGS_REF);
             final String[] tagTitles = tagsString.split(",");
             final JSONArray tags = tag(tagTitles, article);
-
-            // Step 2: Add tag-article relations
             addTagArticleRelation(tags, article);
-            // Step 3: Inc blog article and comment count statictis
-            statisticMgmtService.incBlogCommentCount();
-            statisticMgmtService.incPublishedBlogCommentCount();
-            statisticMgmtService.incBlogArticleCount();
-            statisticMgmtService.incPublishedBlogArticleCount();
-
-            // Step 4: Add archive date-article relations
             archiveDate(article);
-            // Step 5: Add article
             articleRepository.add(article);
-            // Step 6: Update admin user for article statistic
-            final JSONObject admin = userRepository.getAdmin();
-
-            admin.put(UserExt.USER_ARTICLE_COUNT, 1);
-            admin.put(UserExt.USER_PUBLISHED_ARTICLE_COUNT, 1);
-            userRepository.update(admin.optString(Keys.OBJECT_ID), admin);
         } catch (final RepositoryException e) {
             LOGGER.log(Level.ERROR, "Adds an article failed", e);
 
@@ -386,9 +344,6 @@ public class InitService {
 
         try {
             archiveDate.put(ArchiveDate.ARCHIVE_TIME, DateUtils.parseDate(createDateString, new String[]{"yyyy/MM"}).getTime());
-            archiveDate.put(ArchiveDate.ARCHIVE_DATE_ARTICLE_COUNT, 1);
-            archiveDate.put(ArchiveDate.ARCHIVE_DATE_PUBLISHED_ARTICLE_COUNT, 1);
-
             archiveDateRepository.add(archiveDate);
         } catch (final ParseException e) {
             LOGGER.log(Level.ERROR, e.getMessage(), e);
@@ -396,10 +351,8 @@ public class InitService {
         }
 
         final JSONObject archiveDateArticleRelation = new JSONObject();
-
         archiveDateArticleRelation.put(ArchiveDate.ARCHIVE_DATE + "_" + Keys.OBJECT_ID, archiveDate.optString(Keys.OBJECT_ID));
         archiveDateArticleRelation.put(Article.ARTICLE + "_" + Keys.OBJECT_ID, article.optString(Keys.OBJECT_ID));
-
         archiveDateArticleRepository.add(archiveDateArticleRelation);
     }
 
@@ -414,10 +367,8 @@ public class InitService {
         for (int i = 0; i < tags.length(); i++) {
             final JSONObject tag = tags.optJSONObject(i);
             final JSONObject tagArticleRelation = new JSONObject();
-
             tagArticleRelation.put(Tag.TAG + "_" + Keys.OBJECT_ID, tag.optString(Keys.OBJECT_ID));
             tagArticleRelation.put(Article.ARTICLE + "_" + Keys.OBJECT_ID, article.optString(Keys.OBJECT_ID));
-
             tagArticleRepository.add(tagArticleRelation);
         }
     }
@@ -433,20 +384,14 @@ public class InitService {
     private JSONArray tag(final String[] tagTitles, final JSONObject article) throws RepositoryException {
         final JSONArray ret = new JSONArray();
 
-        for (int i = 0; i < tagTitles.length; i++) {
-            final String tagTitle = tagTitles[i].trim();
+        for (String tagTitle1 : tagTitles) {
+            final String tagTitle = tagTitle1.trim();
             final JSONObject tag = new JSONObject();
 
-            LOGGER.log(Level.TRACE, "Found a new tag[title={0}] in article[title={1}]",
-                    tagTitle, article.optString(Article.ARTICLE_TITLE));
+            LOGGER.log(Level.TRACE, "Found a new tag[title={0}] in article[title={1}]", tagTitle, article.optString(Article.ARTICLE_TITLE));
             tag.put(Tag.TAG_TITLE, tagTitle);
-            tag.put(Tag.TAG_REFERENCE_COUNT, 1);
-            tag.put(Tag.TAG_PUBLISHED_REFERENCE_COUNT, 1);
-
             final String tagId = tagRepository.add(tag);
-
             tag.put(Keys.OBJECT_ID, tagId);
-
             ret.put(tag);
         }
 
@@ -459,9 +404,9 @@ public class InitService {
      * @param requestJSONObject the specified request json object, for example,
      *                          {
      *                          "userName": "",
-     *                          "userEmail": "",
-     *                          "userPassowrd": "", // Unhashed
-     *                          "userAvatar": "" // optional
+     *                          "userAvatar": "", // optional
+     *                          "userB3Key": "", // optional
+     *                          "userGitHubId": "" // optional
      *                          }
      * @throws Exception exception
      */
@@ -470,21 +415,14 @@ public class InitService {
         final JSONObject admin = new JSONObject();
 
         admin.put(User.USER_NAME, requestJSONObject.getString(User.USER_NAME));
-        admin.put(User.USER_EMAIL, requestJSONObject.getString(User.USER_EMAIL));
         admin.put(User.USER_URL, Latkes.getServePath());
         admin.put(User.USER_ROLE, Role.ADMIN_ROLE);
-        admin.put(User.USER_PASSWORD, DigestUtils.md5Hex(requestJSONObject.getString(User.USER_PASSWORD)));
-        admin.put(UserExt.USER_ARTICLE_COUNT, 0);
-        admin.put(UserExt.USER_PUBLISHED_ARTICLE_COUNT, 0);
-        String avatar = requestJSONObject.optString(UserExt.USER_AVATAR);
-        if (StringUtils.isBlank(avatar)) {
-            avatar = Solos.getGravatarURL(requestJSONObject.getString(User.USER_EMAIL), "128");
-        }
-        admin.put(UserExt.USER_AVATAR, avatar);
-
+        admin.put(UserExt.USER_AVATAR, requestJSONObject.optString(UserExt.USER_AVATAR));
+        admin.put(UserExt.USER_B3_KEY, requestJSONObject.optString(UserExt.USER_B3_KEY));
+        admin.put(UserExt.USER_GITHUB_ID, requestJSONObject.optString(UserExt.USER_GITHUB_ID));
         userRepository.add(admin);
 
-        LOGGER.debug("Initialized admin");
+        LOGGER.info("Initialized admin");
     }
 
     /**
@@ -493,16 +431,16 @@ public class InitService {
      * @throws Exception exception
      */
     private void initLink() throws Exception {
+        LOGGER.debug("Initializing link....");
         final JSONObject link = new JSONObject();
 
         link.put(Link.LINK_TITLE, "黑客派");
         link.put(Link.LINK_ADDRESS, "https://hacpai.com");
         link.put(Link.LINK_DESCRIPTION, "黑客与画家的社区");
-
         final int maxOrder = linkRepository.getMaxOrder();
-
         link.put(Link.LINK_ORDER, maxOrder + 1);
-        final String ret = linkRepository.add(link);
+        linkRepository.add(link);
+        LOGGER.info("Initialized link");
     }
 
     /**
@@ -514,74 +452,53 @@ public class InitService {
     private void initStatistic() throws RepositoryException, JSONException {
         LOGGER.debug("Initializing statistic....");
 
-        final JSONObject statisticBlogArticleCountOpt = new JSONObject();
-        statisticBlogArticleCountOpt.put(Keys.OBJECT_ID, Option.ID_C_STATISTIC_BLOG_ARTICLE_COUNT);
-        statisticBlogArticleCountOpt.put(Option.OPTION_VALUE, "0");
-        statisticBlogArticleCountOpt.put(Option.OPTION_CATEGORY, Option.CATEGORY_C_STATISTIC);
-        optionRepository.add(statisticBlogArticleCountOpt);
-
-        final JSONObject statisticBlogCommentCountOpt = new JSONObject();
-        statisticBlogCommentCountOpt.put(Keys.OBJECT_ID, Option.ID_C_STATISTIC_BLOG_COMMENT_COUNT);
-        statisticBlogCommentCountOpt.put(Option.OPTION_VALUE, "0");
-        statisticBlogCommentCountOpt.put(Option.OPTION_CATEGORY, Option.CATEGORY_C_STATISTIC);
-        optionRepository.add(statisticBlogCommentCountOpt);
-
         final JSONObject statisticBlogViewCountOpt = new JSONObject();
         statisticBlogViewCountOpt.put(Keys.OBJECT_ID, Option.ID_C_STATISTIC_BLOG_VIEW_COUNT);
         statisticBlogViewCountOpt.put(Option.OPTION_VALUE, "0");
         statisticBlogViewCountOpt.put(Option.OPTION_CATEGORY, Option.CATEGORY_C_STATISTIC);
         optionRepository.add(statisticBlogViewCountOpt);
 
-        final JSONObject statisticPublishedBlogArticleCountOpt = new JSONObject();
-        statisticPublishedBlogArticleCountOpt.put(Keys.OBJECT_ID, Option.ID_C_STATISTIC_PUBLISHED_ARTICLE_COUNT);
-        statisticPublishedBlogArticleCountOpt.put(Option.OPTION_VALUE, "0");
-        statisticPublishedBlogArticleCountOpt.put(Option.OPTION_CATEGORY, Option.CATEGORY_C_STATISTIC);
-        optionRepository.add(statisticPublishedBlogArticleCountOpt);
-
-        final JSONObject statisticPublishedBlogCommentCountOpt = new JSONObject();
-        statisticPublishedBlogCommentCountOpt.put(Keys.OBJECT_ID, Option.ID_C_STATISTIC_PUBLISHED_BLOG_COMMENT_COUNT);
-        statisticPublishedBlogCommentCountOpt.put(Option.OPTION_VALUE, "0");
-        statisticPublishedBlogCommentCountOpt.put(Option.OPTION_CATEGORY, Option.CATEGORY_C_STATISTIC);
-        optionRepository.add(statisticPublishedBlogCommentCountOpt);
-
-        LOGGER.debug("Initialized statistic");
+        LOGGER.info("Initialized statistic");
     }
 
     /**
-     * Initializes reply notification template.
-     *
-     * @throws Exception exception
-     */
-    private void initReplyNotificationTemplate() throws Exception {
-        LOGGER.debug("Initializing reply notification template");
-
-        final JSONObject replyNotificationTemplate = new JSONObject(DefaultPreference.DEFAULT_REPLY_NOTIFICATION_TEMPLATE);
-
-        replyNotificationTemplate.put(Keys.OBJECT_ID, "replyNotificationTemplate");
-
-        final JSONObject subjectOpt = new JSONObject();
-        subjectOpt.put(Keys.OBJECT_ID, Option.ID_C_REPLY_NOTI_TPL_SUBJECT);
-        subjectOpt.put(Option.OPTION_CATEGORY, Option.CATEGORY_C_PREFERENCE);
-        subjectOpt.put(Option.OPTION_VALUE, replyNotificationTemplate.optString("subject"));
-        optionRepository.add(subjectOpt);
-
-        final JSONObject bodyOpt = new JSONObject();
-        bodyOpt.put(Keys.OBJECT_ID, Option.ID_C_REPLY_NOTI_TPL_BODY);
-        bodyOpt.put(Option.OPTION_CATEGORY, Option.CATEGORY_C_PREFERENCE);
-        bodyOpt.put(Option.OPTION_VALUE, replyNotificationTemplate.optString("body"));
-        optionRepository.add(bodyOpt);
-
-        LOGGER.debug("Initialized reply notification template");
-    }
-
-    /**
-     * Initializes preference.
+     * Initializes options.
      *
      * @param requestJSONObject the specified json object
      * @throws Exception exception
      */
-    private void initPreference(final JSONObject requestJSONObject) throws Exception {
+    private void initOptions(final JSONObject requestJSONObject) throws Exception {
         LOGGER.debug("Initializing preference....");
+
+        final JSONObject hljsThemeOpt = new JSONObject();
+        hljsThemeOpt.put(Keys.OBJECT_ID, Option.ID_C_HLJS_THEME);
+        hljsThemeOpt.put(Option.OPTION_CATEGORY, Option.CATEGORY_C_PREFERENCE);
+        hljsThemeOpt.put(Option.OPTION_VALUE, DefaultPreference.DEFAULT_HLJS_THEME);
+        optionRepository.add(hljsThemeOpt);
+
+        final JSONObject syncGitHubOpt = new JSONObject();
+        syncGitHubOpt.put(Keys.OBJECT_ID, Option.ID_C_SYNC_GITHUB);
+        syncGitHubOpt.put(Option.OPTION_CATEGORY, Option.CATEGORY_C_PREFERENCE);
+        syncGitHubOpt.put(Option.OPTION_VALUE, DefaultPreference.DEFAULT_SYNC_GITHUB);
+        optionRepository.add(syncGitHubOpt);
+
+        final JSONObject pullGitHubOpt = new JSONObject();
+        pullGitHubOpt.put(Keys.OBJECT_ID, Option.ID_C_PULL_GITHUB);
+        pullGitHubOpt.put(Option.OPTION_CATEGORY, Option.CATEGORY_C_PREFERENCE);
+        pullGitHubOpt.put(Option.OPTION_VALUE, DefaultPreference.DEFAULT_PULL_GITHUB);
+        optionRepository.add(pullGitHubOpt);
+
+        final JSONObject faviconURLOpt = new JSONObject();
+        faviconURLOpt.put(Keys.OBJECT_ID, Option.ID_C_FAVICON_URL);
+        faviconURLOpt.put(Option.OPTION_CATEGORY, Option.CATEGORY_C_PREFERENCE);
+        faviconURLOpt.put(Option.OPTION_VALUE, DefaultPreference.DEFAULT_FAVICON_URL);
+        optionRepository.add(faviconURLOpt);
+
+        final JSONObject customVarsOpt = new JSONObject();
+        customVarsOpt.put(Keys.OBJECT_ID, Option.ID_C_CUSTOM_VARS);
+        customVarsOpt.put(Option.OPTION_CATEGORY, Option.CATEGORY_C_PREFERENCE);
+        customVarsOpt.put(Option.OPTION_VALUE, DefaultPreference.DEFAULT_CUSTOM_VARS);
+        optionRepository.add(customVarsOpt);
 
         final JSONObject noticeBoardOpt = new JSONObject();
         noticeBoardOpt.put(Keys.OBJECT_ID, Option.ID_C_NOTICE_BOARD);
@@ -679,12 +596,6 @@ public class InitService {
         blogSubtitleOpt.put(Option.OPTION_VALUE, DefaultPreference.DEFAULT_BLOG_SUBTITLE);
         optionRepository.add(blogSubtitleOpt);
 
-        final JSONObject adminEmailOpt = new JSONObject();
-        adminEmailOpt.put(Keys.OBJECT_ID, Option.ID_C_ADMIN_EMAIL);
-        adminEmailOpt.put(Option.OPTION_CATEGORY, Option.CATEGORY_C_PREFERENCE);
-        adminEmailOpt.put(Option.OPTION_VALUE, requestJSONObject.getString(User.USER_EMAIL));
-        optionRepository.add(adminEmailOpt);
-
         final JSONObject localeStringOpt = new JSONObject();
         localeStringOpt.put(Keys.OBJECT_ID, Option.ID_C_LOCALE_STRING);
         localeStringOpt.put(Option.OPTION_CATEGORY, Option.CATEGORY_C_PREFERENCE);
@@ -715,12 +626,6 @@ public class InitService {
         allowVisitDraftViaPermalinkOpt.put(Option.OPTION_VALUE, DefaultPreference.DEFAULT_ALLOW_VISIT_DRAFT_VIA_PERMALINK);
         optionRepository.add(allowVisitDraftViaPermalinkOpt);
 
-        final JSONObject allowRegisterOpt = new JSONObject();
-        allowRegisterOpt.put(Keys.OBJECT_ID, Option.ID_C_ALLOW_REGISTER);
-        allowRegisterOpt.put(Option.OPTION_CATEGORY, Option.CATEGORY_C_PREFERENCE);
-        allowRegisterOpt.put(Option.OPTION_VALUE, DefaultPreference.DEFAULT_ALLOW_REGISTER);
-        optionRepository.add(allowRegisterOpt);
-
         final JSONObject commentableOpt = new JSONObject();
         commentableOpt.put(Keys.OBJECT_ID, Option.ID_C_COMMENTABLE);
         commentableOpt.put(Option.OPTION_CATEGORY, Option.CATEGORY_C_PREFERENCE);
@@ -739,12 +644,6 @@ public class InitService {
         articleListStyleOpt.put(Option.OPTION_VALUE, DefaultPreference.DEFAULT_ARTICLE_LIST_STYLE);
         optionRepository.add(articleListStyleOpt);
 
-        final JSONObject keyOfSoloOpt = new JSONObject();
-        keyOfSoloOpt.put(Keys.OBJECT_ID, Option.ID_C_KEY_OF_SOLO);
-        keyOfSoloOpt.put(Option.OPTION_CATEGORY, Option.CATEGORY_C_PREFERENCE);
-        keyOfSoloOpt.put(Option.OPTION_VALUE, Ids.genTimeMillisId());
-        optionRepository.add(keyOfSoloOpt);
-
         final JSONObject feedOutputModeOpt = new JSONObject();
         feedOutputModeOpt.put(Keys.OBJECT_ID, Option.ID_C_FEED_OUTPUT_MODE);
         feedOutputModeOpt.put(Option.OPTION_CATEGORY, Option.CATEGORY_C_PREFERENCE);
@@ -757,130 +656,24 @@ public class InitService {
         feedOutputCntOpt.put(Option.OPTION_VALUE, DefaultPreference.DEFAULT_FEED_OUTPUT_CNT);
         optionRepository.add(feedOutputCntOpt);
 
-        final JSONObject editorTypeOpt = new JSONObject();
-        editorTypeOpt.put(Keys.OBJECT_ID, Option.ID_C_EDITOR_TYPE);
-        editorTypeOpt.put(Option.OPTION_CATEGORY, Option.CATEGORY_C_PREFERENCE);
-        editorTypeOpt.put(Option.OPTION_VALUE, DefaultPreference.DEFAULT_EDITOR_TYPE);
-        optionRepository.add(editorTypeOpt);
-
         final JSONObject footerContentOpt = new JSONObject();
         footerContentOpt.put(Keys.OBJECT_ID, Option.ID_C_FOOTER_CONTENT);
         footerContentOpt.put(Option.OPTION_CATEGORY, Option.CATEGORY_C_PREFERENCE);
         footerContentOpt.put(Option.OPTION_VALUE, DefaultPreference.DEFAULT_FOOTER_CONTENT);
         optionRepository.add(footerContentOpt);
 
-        final String skinDirName = DefaultPreference.DEFAULT_SKIN_DIR_NAME;
         final JSONObject skinDirNameOpt = new JSONObject();
         skinDirNameOpt.put(Keys.OBJECT_ID, Option.ID_C_SKIN_DIR_NAME);
-        skinDirNameOpt.put(Option.OPTION_CATEGORY, Option.CATEGORY_C_PREFERENCE);
-        skinDirNameOpt.put(Option.OPTION_VALUE, skinDirName);
+        skinDirNameOpt.put(Option.OPTION_CATEGORY, Option.CATEGORY_C_SKIN);
+        skinDirNameOpt.put(Option.OPTION_VALUE, DefaultPreference.DEFAULT_SKIN_DIR_NAME);
         optionRepository.add(skinDirNameOpt);
 
-        final String skinName = Latkes.getSkinName(skinDirName);
-        final JSONObject skinNameOpt = new JSONObject();
-        skinNameOpt.put(Keys.OBJECT_ID, Option.ID_C_SKIN_NAME);
-        skinNameOpt.put(Option.OPTION_CATEGORY, Option.CATEGORY_C_PREFERENCE);
-        skinNameOpt.put(Option.OPTION_VALUE, skinName);
-        optionRepository.add(skinNameOpt);
+        final JSONObject mobileSkinDirNameOpt = new JSONObject();
+        mobileSkinDirNameOpt.put(Keys.OBJECT_ID, Option.ID_C_MOBILE_SKIN_DIR_NAME);
+        mobileSkinDirNameOpt.put(Option.OPTION_CATEGORY, Option.CATEGORY_C_SKIN);
+        mobileSkinDirNameOpt.put(Option.OPTION_VALUE, DefaultPreference.DEFAULT_MOBILE_SKIN_DIR_NAME);
+        optionRepository.add(mobileSkinDirNameOpt);
 
-        final Set<String> skinDirNames = Skins.getSkinDirNames();
-        final JSONArray skinArray = new JSONArray();
-        for (final String dirName : skinDirNames) {
-            final JSONObject skin = new JSONObject();
-            skinArray.put(skin);
-
-            final String name = Latkes.getSkinName(dirName);
-            skin.put(Skin.SKIN_NAME, name);
-            skin.put(Skin.SKIN_DIR_NAME, dirName);
-        }
-
-        final JSONObject skinsOpt = new JSONObject();
-        skinsOpt.put(Keys.OBJECT_ID, Option.ID_C_SKINS);
-        skinsOpt.put(Option.OPTION_CATEGORY, Option.CATEGORY_C_PREFERENCE);
-        skinsOpt.put(Option.OPTION_VALUE, skinArray.toString());
-        optionRepository.add(skinsOpt);
-
-        LOGGER.debug("Initialized preference");
-    }
-
-    /**
-     * Sets archive date article repository with the specified archive date article repository.
-     *
-     * @param archiveDateArticleRepository the specified archive date article repository
-     */
-    public void setArchiveDateArticleRepository(final ArchiveDateArticleRepository archiveDateArticleRepository) {
-        this.archiveDateArticleRepository = archiveDateArticleRepository;
-    }
-
-    /**
-     * Sets archive date repository with the specified archive date repository.
-     *
-     * @param archiveDateRepository the specified archive date repository
-     */
-    public void setArchiveDateRepository(final ArchiveDateRepository archiveDateRepository) {
-        this.archiveDateRepository = archiveDateRepository;
-    }
-
-    /**
-     * Sets the article repository with the specified article repository.
-     *
-     * @param articleRepository the specified article repository
-     */
-    public void setArticleRepository(final ArticleRepository articleRepository) {
-        this.articleRepository = articleRepository;
-    }
-
-    /**
-     * Sets the user repository with the specified user repository.
-     *
-     * @param userRepository the specified user repository
-     */
-    public void setUserRepository(final UserRepository userRepository) {
-        this.userRepository = userRepository;
-    }
-
-    /**
-     * Sets the tag repository with the specified tag repository.
-     *
-     * @param tagRepository the specified tag repository
-     */
-    public void setTagRepository(final TagRepository tagRepository) {
-        this.tagRepository = tagRepository;
-    }
-
-    /**
-     * Sets the tag article repository with the specified tag article repository.
-     *
-     * @param tagArticleRepository the specified tag article repository
-     */
-    public void setTagArticleRepository(final TagArticleRepository tagArticleRepository) {
-        this.tagArticleRepository = tagArticleRepository;
-    }
-
-    /**
-     * Sets the comment repository with the specified comment repository.
-     *
-     * @param commentRepository the specified comment repository
-     */
-    public void setCommentRepository(final CommentRepository commentRepository) {
-        this.commentRepository = commentRepository;
-    }
-
-    /**
-     * Sets the language service with the specified language service.
-     *
-     * @param langPropsService the specified language service
-     */
-    public void setLangPropsService(final LangPropsService langPropsService) {
-        this.langPropsService = langPropsService;
-    }
-
-    /**
-     * Sets the plugin manager with the specified plugin manager.
-     *
-     * @param pluginManager the specified plugin manager
-     */
-    public void setPluginManager(final PluginManager pluginManager) {
-        this.pluginManager = pluginManager;
+        LOGGER.info("Initialized preference");
     }
 }

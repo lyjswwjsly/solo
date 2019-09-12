@@ -1,6 +1,6 @@
 /*
  * Solo - A small and beautiful blogging system written in Java.
- * Copyright (c) 2010-2018, b3log.org & hacpai.com
+ * Copyright (c) 2010-present, b3log.org
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
@@ -21,7 +21,7 @@ package org.b3log.solo.model;
  * This class defines all archive date model relevant keys.
  *
  * @author <a href="http://88250.b3log.org">Liang Ding</a>
- * @version 1.0.0.4, Jan 18, 2013
+ * @version 1.0.0.5, Jan 28, 2019
  */
 public final class ArchiveDate {
 
@@ -40,15 +40,11 @@ public final class ArchiveDate {
      */
     public static final String ARCHIVE_TIME = "archiveTime";
 
+    //// Transient ////
     /**
      * Key of archive date article count.
      */
-    public static final String ARCHIVE_DATE_ARTICLE_COUNT = "archiveDateArticleCount";
-
-    /**
-     * Key of archive date article count.
-     */
-    public static final String ARCHIVE_DATE_PUBLISHED_ARTICLE_COUNT = "archiveDatePublishedArticleCount";
+    public static final String ARCHIVE_DATE_T_PUBLISHED_ARTICLE_COUNT = "archiveDatePublishedArticleCount";
 
     /**
      * Archive date year.
@@ -63,5 +59,6 @@ public final class ArchiveDate {
     /**
      * Private constructor.
      */
-    private ArchiveDate() {}
+    private ArchiveDate() {
+    }
 }

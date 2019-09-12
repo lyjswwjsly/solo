@@ -1,6 +1,6 @@
 /*
  * Solo - A small and beautiful blogging system written in Java.
- * Copyright (c) 2010-2018, b3log.org & hacpai.com
+ * Copyright (c) 2010-present, b3log.org
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
@@ -22,7 +22,6 @@ import org.b3log.latke.repository.Query;
 import org.b3log.latke.repository.Transaction;
 import org.b3log.solo.AbstractTestCase;
 import org.b3log.solo.model.Article;
-import org.b3log.solo.repository.ArticleRepository;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.testng.Assert;
@@ -35,7 +34,7 @@ import java.util.List;
  * {@link ArticleRepository} test case.
  *
  * @author <a href="http://88250.b3log.org">Liang Ding</a>
- * @version 1.0.0.4, Sep 16, 2018
+ * @version 1.0.0.5, Feb 25, 2019
  */
 @Test(suiteName = "repository")
 public final class ArticleRepositoryImplTestCase extends AbstractTestCase {
@@ -53,14 +52,14 @@ public final class ArticleRepositoryImplTestCase extends AbstractTestCase {
 
         article.put(Article.ARTICLE_TITLE, "article title1");
         article.put(Article.ARTICLE_ABSTRACT, "article abstract");
+        article.put(Article.ARTICLE_ABSTRACT_TEXT, "article abstract text");
         article.put(Article.ARTICLE_TAGS_REF, "tag1, tag2");
         article.put(Article.ARTICLE_AUTHOR_ID, "1");
         article.put(Article.ARTICLE_COMMENT_COUNT, 0);
         article.put(Article.ARTICLE_VIEW_COUNT, 0);
         article.put(Article.ARTICLE_CONTENT, "article content");
         article.put(Article.ARTICLE_PERMALINK, "article permalink1");
-        article.put(Article.ARTICLE_HAD_BEEN_PUBLISHED, true);
-        article.put(Article.ARTICLE_IS_PUBLISHED, true);
+        article.put(Article.ARTICLE_STATUS, Article.ARTICLE_STATUS_C_PUBLISHED);
         article.put(Article.ARTICLE_PUT_TOP, false);
         article.put(Article.ARTICLE_CREATED, new Date().getTime());
         article.put(Article.ARTICLE_UPDATED, new Date().getTime());
@@ -68,7 +67,7 @@ public final class ArticleRepositoryImplTestCase extends AbstractTestCase {
         article.put(Article.ARTICLE_SIGN_ID, "1");
         article.put(Article.ARTICLE_COMMENTABLE, true);
         article.put(Article.ARTICLE_VIEW_PWD, "");
-        article.put(Article.ARTICLE_EDITOR_TYPE, "");
+        article.put(Article.ARTICLE_IMG1_URL, Article.getArticleImg1URL(article));
 
         final Transaction transaction = articleRepository.beginTransaction();
         articleRepository.add(article);
@@ -108,14 +107,14 @@ public final class ArticleRepositoryImplTestCase extends AbstractTestCase {
 
         article.put(Article.ARTICLE_TITLE, "article title2");
         article.put(Article.ARTICLE_ABSTRACT, "article abstract");
+        article.put(Article.ARTICLE_ABSTRACT_TEXT, "article abstract text");
         article.put(Article.ARTICLE_TAGS_REF, "tag1, tag2");
         article.put(Article.ARTICLE_AUTHOR_ID, "1");
         article.put(Article.ARTICLE_COMMENT_COUNT, 1);
         article.put(Article.ARTICLE_VIEW_COUNT, 1);
         article.put(Article.ARTICLE_CONTENT, "article content");
         article.put(Article.ARTICLE_PERMALINK, "article permalink2");
-        article.put(Article.ARTICLE_HAD_BEEN_PUBLISHED, true);
-        article.put(Article.ARTICLE_IS_PUBLISHED, true);
+        article.put(Article.ARTICLE_STATUS, Article.ARTICLE_STATUS_C_PUBLISHED);
         article.put(Article.ARTICLE_PUT_TOP, false);
         article.put(Article.ARTICLE_CREATED, new Date().getTime());
         article.put(Article.ARTICLE_UPDATED, new Date().getTime());
@@ -123,7 +122,7 @@ public final class ArticleRepositoryImplTestCase extends AbstractTestCase {
         article.put(Article.ARTICLE_SIGN_ID, "1");
         article.put(Article.ARTICLE_COMMENTABLE, true);
         article.put(Article.ARTICLE_VIEW_PWD, "");
-        article.put(Article.ARTICLE_EDITOR_TYPE, "");
+        article.put(Article.ARTICLE_IMG1_URL, Article.getArticleImg1URL(article));
 
         final Transaction transaction = articleRepository.beginTransaction();
         articleRepository.add(article);
@@ -158,14 +157,14 @@ public final class ArticleRepositoryImplTestCase extends AbstractTestCase {
 
         article.put(Article.ARTICLE_TITLE, "article title3");
         article.put(Article.ARTICLE_ABSTRACT, "article abstract");
+        article.put(Article.ARTICLE_ABSTRACT_TEXT, "article abstract text");
         article.put(Article.ARTICLE_TAGS_REF, "tag1, tag2");
         article.put(Article.ARTICLE_AUTHOR_ID, "1");
         article.put(Article.ARTICLE_COMMENT_COUNT, 2);
         article.put(Article.ARTICLE_VIEW_COUNT, 2);
         article.put(Article.ARTICLE_CONTENT, "article content");
         article.put(Article.ARTICLE_PERMALINK, "article permalink3");
-        article.put(Article.ARTICLE_HAD_BEEN_PUBLISHED, true);
-        article.put(Article.ARTICLE_IS_PUBLISHED, true);
+        article.put(Article.ARTICLE_STATUS, Article.ARTICLE_STATUS_C_PUBLISHED);
         article.put(Article.ARTICLE_PUT_TOP, false);
         article.put(Article.ARTICLE_CREATED, new Date().getTime());
         article.put(Article.ARTICLE_UPDATED, new Date().getTime());
@@ -173,7 +172,7 @@ public final class ArticleRepositoryImplTestCase extends AbstractTestCase {
         article.put(Article.ARTICLE_SIGN_ID, "1");
         article.put(Article.ARTICLE_COMMENTABLE, true);
         article.put(Article.ARTICLE_VIEW_PWD, "");
-        article.put(Article.ARTICLE_EDITOR_TYPE, "");
+        article.put(Article.ARTICLE_IMG1_URL, Article.getArticleImg1URL(article));
 
         final Transaction transaction = articleRepository.beginTransaction();
         articleRepository.add(article);
@@ -196,9 +195,7 @@ public final class ArticleRepositoryImplTestCase extends AbstractTestCase {
      *
      * @throws Exception exception
      */
-    @Test(dependsOnMethods = {"add",
-            "previousAndNext",
-            "getMostCommentArticles"})
+    @Test(dependsOnMethods = {"add", "previousAndNext", "getMostCommentArticles"})
     public void getMostViewCountArticles() throws Exception {
         final ArticleRepository articleRepository = getArticleRepository();
 
@@ -206,14 +203,14 @@ public final class ArticleRepositoryImplTestCase extends AbstractTestCase {
 
         article.put(Article.ARTICLE_TITLE, "article title4");
         article.put(Article.ARTICLE_ABSTRACT, "article abstract");
+        article.put(Article.ARTICLE_ABSTRACT_TEXT, "article abstract text");
         article.put(Article.ARTICLE_TAGS_REF, "tag1, tag2");
         article.put(Article.ARTICLE_AUTHOR_ID, "1");
         article.put(Article.ARTICLE_COMMENT_COUNT, 3);
         article.put(Article.ARTICLE_VIEW_COUNT, 3);
         article.put(Article.ARTICLE_CONTENT, "article content");
         article.put(Article.ARTICLE_PERMALINK, "article permalink4");
-        article.put(Article.ARTICLE_HAD_BEEN_PUBLISHED, false);
-        article.put(Article.ARTICLE_IS_PUBLISHED, false); // Unpublished
+        article.put(Article.ARTICLE_STATUS, Article.ARTICLE_STATUS_C_DRAFT);
         article.put(Article.ARTICLE_PUT_TOP, false);
         article.put(Article.ARTICLE_CREATED, new Date().getTime());
         article.put(Article.ARTICLE_UPDATED, new Date().getTime());
@@ -221,7 +218,7 @@ public final class ArticleRepositoryImplTestCase extends AbstractTestCase {
         article.put(Article.ARTICLE_SIGN_ID, "1");
         article.put(Article.ARTICLE_COMMENTABLE, true);
         article.put(Article.ARTICLE_VIEW_PWD, "");
-        article.put(Article.ARTICLE_EDITOR_TYPE, "");
+        article.put(Article.ARTICLE_IMG1_URL, Article.getArticleImg1URL(article));
 
         final Transaction transaction = articleRepository.beginTransaction();
         articleRepository.add(article);
@@ -245,10 +242,7 @@ public final class ArticleRepositoryImplTestCase extends AbstractTestCase {
      *
      * @throws Exception exception
      */
-    @Test(dependsOnMethods = {"add",
-            "previousAndNext",
-            "getMostCommentArticles",
-            "getMostViewCountArticles"})
+    @Test(dependsOnMethods = {"add", "previousAndNext", "getMostCommentArticles", "getMostViewCountArticles"})
     public void getRandomly() throws Exception {
         final ArticleRepository articleRepository = getArticleRepository();
 
@@ -261,10 +255,7 @@ public final class ArticleRepositoryImplTestCase extends AbstractTestCase {
      *
      * @throws Exception exception
      */
-    @Test(dependsOnMethods = {"add",
-            "previousAndNext",
-            "getMostCommentArticles",
-            "getMostViewCountArticles"})
+    @Test(dependsOnMethods = {"add", "previousAndNext", "getMostCommentArticles", "getMostViewCountArticles"})
     public void getRecentArticles() throws Exception {
         final ArticleRepository articleRepository = getArticleRepository();
 
@@ -296,7 +287,7 @@ public final class ArticleRepositoryImplTestCase extends AbstractTestCase {
 
         final JSONObject notPublished = articleRepository.getByPermalink("article permalink4");
         Assert.assertNotNull(notPublished);
-        Assert.assertFalse(notPublished.getBoolean(Article.ARTICLE_IS_PUBLISHED));
+        Assert.assertEquals(Article.ARTICLE_STATUS_C_DRAFT, notPublished.optInt(Article.ARTICLE_STATUS));
 
         Assert.assertFalse(articleRepository.isPublished("not found"));
     }

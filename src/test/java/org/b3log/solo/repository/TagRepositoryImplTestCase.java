@@ -1,6 +1,6 @@
 /*
  * Solo - A small and beautiful blogging system written in Java.
- * Copyright (c) 2010-2018, b3log.org & hacpai.com
+ * Copyright (c) 2010-present, b3log.org
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
@@ -17,23 +17,22 @@
  */
 package org.b3log.solo.repository;
 
-import java.util.List;
 import junit.framework.Assert;
 import org.b3log.latke.Keys;
 import org.b3log.latke.repository.Transaction;
 import org.b3log.solo.AbstractTestCase;
 import org.b3log.solo.model.Article;
 import org.b3log.solo.model.Tag;
-import org.b3log.solo.repository.TagArticleRepository;
-import org.b3log.solo.repository.TagRepository;
 import org.json.JSONObject;
 import org.testng.annotations.Test;
+
+import java.util.List;
 
 /**
  * {@link TagRepository} test case.
  *
  * @author <a href="http://88250.b3log.org">Liang Ding</a>
- * @version 1.0.0.0, Dec 30, 2011
+ * @version 1.0.0.1, Jan 28, 2019
  */
 @Test(suiteName = "repository")
 public class TagRepositoryImplTestCase extends AbstractTestCase {
@@ -48,10 +47,7 @@ public class TagRepositoryImplTestCase extends AbstractTestCase {
         final TagRepository tagRepository = getTagRepository();
 
         final JSONObject tag = new JSONObject();
-
         tag.put(Tag.TAG_TITLE, "tag title1");
-        tag.put(Tag.TAG_REFERENCE_COUNT, 1);
-        tag.put(Tag.TAG_PUBLISHED_REFERENCE_COUNT, 0);
 
         final Transaction transaction = tagRepository.beginTransaction();
         tagRepository.add(tag);
@@ -68,43 +64,11 @@ public class TagRepositoryImplTestCase extends AbstractTestCase {
         final TagRepository tagRepository = getTagRepository();
 
         final JSONObject found = tagRepository.getByTitle("tag title1");
-
         Assert.assertNotNull(found);
         Assert.assertEquals(found.getString(Tag.TAG_TITLE), "tag title1");
-        Assert.assertEquals(0, found.getInt(Tag.TAG_PUBLISHED_REFERENCE_COUNT));
-        Assert.assertEquals(1, found.getInt(Tag.TAG_REFERENCE_COUNT));
 
         final JSONObject notFound = tagRepository.getByTitle("");
         Assert.assertNull(notFound);
-    }
-
-    /**
-     * Get Most Used Tags.
-     *
-     * @throws Exception exception
-     */
-    @Test(dependsOnMethods = "add")
-    public void getMostUsedTags() throws Exception {
-        final TagRepository tagRepository = getTagRepository();
-
-        final JSONObject tag = new JSONObject();
-
-        tag.put(Tag.TAG_TITLE, "tag title2");
-        tag.put(Tag.TAG_REFERENCE_COUNT, 3);
-        tag.put(Tag.TAG_PUBLISHED_REFERENCE_COUNT, 3);
-
-        final Transaction transaction = tagRepository.beginTransaction();
-        tagRepository.add(tag);
-        transaction.commit();
-
-        List<JSONObject> mostUsedTags = tagRepository.getMostUsedTags(3);
-        Assert.assertNotNull(mostUsedTags);
-        Assert.assertEquals(2, mostUsedTags.size());
-
-        mostUsedTags = tagRepository.getMostUsedTags(1);
-        Assert.assertNotNull(mostUsedTags);
-        Assert.assertEquals(1, mostUsedTags.size());
-        Assert.assertEquals(3, mostUsedTags.get(0).getInt(Tag.TAG_PUBLISHED_REFERENCE_COUNT));
     }
 
     /**

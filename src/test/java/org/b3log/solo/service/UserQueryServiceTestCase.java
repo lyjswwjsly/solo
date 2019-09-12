@@ -1,6 +1,6 @@
 /*
  * Solo - A small and beautiful blogging system written in Java.
- * Copyright (c) 2010-2018, b3log.org & hacpai.com
+ * Copyright (c) 2010-present, b3log.org
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
@@ -19,8 +19,8 @@ package org.b3log.solo.service;
 
 import junit.framework.Assert;
 import org.b3log.latke.model.User;
-import org.b3log.latke.util.Requests;
 import org.b3log.solo.AbstractTestCase;
+import org.b3log.solo.util.Solos;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.testng.annotations.Test;
@@ -30,7 +30,7 @@ import org.testng.annotations.Test;
  *
  * @author <a href="http://88250.b3log.org">Liang Ding</a>
  * @author <a href="https://github.com/nanolikeyou">nanolikeyou</a>
- * @version 1.0.0.2, Aug 14, 2017
+ * @version 1.0.0.3, Feb 11, 2019
  */
 @Test(suiteName = "service")
 public class UserQueryServiceTestCase extends AbstractTestCase {
@@ -47,8 +47,6 @@ public class UserQueryServiceTestCase extends AbstractTestCase {
         final JSONObject requestJSONObject = new JSONObject();
 
         requestJSONObject.put(User.USER_NAME, "user1name");
-        requestJSONObject.put(User.USER_EMAIL, "test1@gmail.com");
-        requestJSONObject.put(User.USER_PASSWORD, "pass1");
 
         final String id = userMgmtService.addUser(requestJSONObject);
         Assert.assertNotNull(id);
@@ -59,25 +57,21 @@ public class UserQueryServiceTestCase extends AbstractTestCase {
 
     /**
      * Get User.
-     *
-     * @throws Exception exception
      */
     @Test(dependsOnMethods = "addUser")
-    public void getUser() throws Exception {
+    public void getUser() {
         final UserQueryService userQueryService = getUserQueryService();
         Assert.assertNull(userQueryService.getUser("not found"));
     }
 
     /**
-     * Get User By Email.
-     *
-     * @throws Exception exception
+     * Get User By Name.
      */
     @Test(dependsOnMethods = "addUser")
-    public void getUserByEmail() throws Exception {
+    public void getUserByName() {
         final UserQueryService userQueryService = getUserQueryService();
 
-        final JSONObject user = userQueryService.getUserByEmailOrUserName("test1@gmail.com");
+        final JSONObject user = userQueryService.getUserByName("user1name");
         Assert.assertNotNull(user);
     }
 
@@ -90,7 +84,7 @@ public class UserQueryServiceTestCase extends AbstractTestCase {
     public void getUsers() throws Exception {
         final UserQueryService userQueryService = getUserQueryService();
 
-        final JSONObject paginationRequest = Requests.buildPaginationRequest("1/20/10");
+        final JSONObject paginationRequest = Solos.buildPaginationRequest("1/20/10");
         final JSONObject result = userQueryService.getUsers(paginationRequest);
         final JSONArray users = result.getJSONArray(User.USERS);
         Assert.assertEquals(1, users.length());
@@ -103,7 +97,7 @@ public class UserQueryServiceTestCase extends AbstractTestCase {
         final UserQueryService userQueryService = getUserQueryService();
         final String loginURL = userQueryService.getLoginURL("redirectURL");
 
-        Assert.assertEquals(loginURL, "/login?goto=http%3A%2F%2Flocalhost%3A8080redirectURL");
+        Assert.assertEquals(loginURL, "/start?referer=http%3A%2F%2Flocalhost%3A8080redirectURL");
     }
 
     /**
@@ -113,6 +107,6 @@ public class UserQueryServiceTestCase extends AbstractTestCase {
         final UserQueryService userQueryService = getUserQueryService();
         final String logoutURL = userQueryService.getLogoutURL();
 
-        Assert.assertEquals(logoutURL, "/logout?goto=http%3A%2F%2Flocalhost%3A8080%2F");
+        Assert.assertEquals(logoutURL, "/logout?referer=http%3A%2F%2Flocalhost%3A8080");
     }
 }

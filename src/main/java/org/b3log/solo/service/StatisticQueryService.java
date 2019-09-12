@@ -1,6 +1,6 @@
 /*
  * Solo - A small and beautiful blogging system written in Java.
- * Copyright (c) 2010-2018, b3log.org & hacpai.com
+ * Copyright (c) 2010-present, b3log.org
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
@@ -18,26 +18,50 @@
 package org.b3log.solo.service;
 
 import org.b3log.latke.ioc.Inject;
-import org.b3log.latke.service.ServiceException;
+import org.b3log.latke.logging.Level;
+import org.b3log.latke.logging.Logger;
+import org.b3log.latke.repository.FilterOperator;
+import org.b3log.latke.repository.PropertyFilter;
+import org.b3log.latke.repository.Query;
 import org.b3log.latke.service.annotation.Service;
+import org.b3log.solo.model.Article;
 import org.b3log.solo.model.Option;
+import org.b3log.solo.repository.ArticleRepository;
+import org.b3log.solo.repository.CommentRepository;
 import org.json.JSONObject;
 
 /**
  * Statistic query service.
  *
  * @author <a href="http://88250.b3log.org">Liang Ding</a>
- * @version 2.0.0.1, Sep 19, 2018
+ * @version 2.0.0.2, Jan 28, 2019
  * @since 0.5.0
  */
 @Service
 public class StatisticQueryService {
 
     /**
+     * Logger.
+     */
+    private static final Logger LOGGER = Logger.getLogger(StatisticQueryService.class);
+
+    /**
      * Option query service.
      */
     @Inject
     private OptionQueryService optionQueryService;
+
+    /**
+     * Article repository.
+     */
+    @Inject
+    private ArticleRepository articleRepository;
+
+    /**
+     * Comment repository.
+     */
+    @Inject
+    private CommentRepository commentRepository;
 
     /**
      * Gets the online visitor count.
@@ -49,81 +73,23 @@ public class StatisticQueryService {
     }
 
     /**
-     * Get blog comment count.
-     *
-     * @return blog comment count
-     * @throws ServiceException service exception
-     */
-    public int getBlogCommentCount() throws ServiceException {
-        final JSONObject opt = optionQueryService.getOptionById(Option.ID_C_STATISTIC_BLOG_COMMENT_COUNT);
-        if (null == opt) {
-            throw new ServiceException("Not found statistic");
-        }
-
-        return opt.optInt(Option.OPTION_VALUE);
-    }
-
-    /**
-     * Get blog comment(published article) count.
-     *
-     * @return blog comment count
-     * @throws ServiceException service exception
-     */
-    public int getPublishedBlogCommentCount() throws ServiceException {
-        final JSONObject opt = optionQueryService.getOptionById(Option.ID_C_STATISTIC_PUBLISHED_BLOG_COMMENT_COUNT);
-        if (null == opt) {
-            throw new ServiceException("Not found statistic");
-        }
-
-        return opt.optInt(Option.OPTION_VALUE);
-    }
-
-    /**
-     * Gets blog statistic published article count.
-     *
-     * @return published blog article count
-     * @throws ServiceException service exception
-     */
-    public int getPublishedBlogArticleCount() throws ServiceException {
-        final JSONObject opt = optionQueryService.getOptionById(Option.ID_C_STATISTIC_PUBLISHED_ARTICLE_COUNT);
-        if (null == opt) {
-            throw new ServiceException("Not found statistic");
-        }
-
-        return opt.optInt(Option.OPTION_VALUE);
-    }
-
-    /**
-     * Gets blog statistic article count.
-     *
-     * @return blog article count
-     * @throws ServiceException service exception
-     */
-    public int getBlogArticleCount() throws ServiceException {
-        final JSONObject opt = optionQueryService.getOptionById(Option.ID_C_STATISTIC_BLOG_ARTICLE_COUNT);
-        if (null == opt) {
-            throw new ServiceException("Not found statistic");
-        }
-
-        return opt.optInt(Option.OPTION_VALUE);
-    }
-
-    /**
      * Gets the statistic.
      *
      * @return statistic, returns {@code null} if not found
-     * @throws ServiceException if repository exception
      */
-    public JSONObject getStatistic() throws ServiceException {
-        return optionQueryService.getOptions(Option.CATEGORY_C_STATISTIC);
-    }
+    public JSONObject getStatistic() {
+        try {
+            final JSONObject ret = optionQueryService.getOptions(Option.CATEGORY_C_STATISTIC);
+            final long publishedArticleCount = articleRepository.count(new Query().setFilter(new PropertyFilter(Article.ARTICLE_STATUS, FilterOperator.EQUAL, Article.ARTICLE_STATUS_C_PUBLISHED)));
+            ret.put(Option.ID_T_STATISTIC_PUBLISHED_ARTICLE_COUNT, publishedArticleCount);
+            final long commentCount = commentRepository.count(new Query());
+            ret.put(Option.ID_T_STATISTIC_PUBLISHED_BLOG_COMMENT_COUNT, commentCount);
 
-    /**
-     * Sets the option query service with the specified option query service.
-     *
-     * @param optionQueryService the specified option query service
-     */
-    public void setOptionQueryService(final OptionQueryService optionQueryService) {
-        this.optionQueryService = optionQueryService;
+            return ret;
+        } catch (final Exception e) {
+            LOGGER.log(Level.ERROR, "Gets statistic failed", e);
+
+            return null;
+        }
     }
 }

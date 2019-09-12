@@ -1,6 +1,6 @@
 /*
  * Solo - A small and beautiful blogging system written in Java.
- * Copyright (c) 2010-2018, b3log.org & hacpai.com
+ * Copyright (c) 2010-present, b3log.org
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
@@ -23,8 +23,8 @@ import org.apache.commons.lang.time.DateFormatUtils;
 import org.b3log.latke.Keys;
 import org.b3log.latke.Latkes;
 import org.b3log.latke.event.Event;
-import org.b3log.latke.event.EventException;
 import org.b3log.latke.event.EventManager;
+import org.b3log.latke.ioc.BeanManager;
 import org.b3log.latke.ioc.Inject;
 import org.b3log.latke.logging.Level;
 import org.b3log.latke.logging.Logger;
@@ -37,11 +37,11 @@ import org.b3log.latke.repository.*;
 import org.b3log.latke.service.LangPropsService;
 import org.b3log.latke.service.ServiceException;
 import org.b3log.latke.service.annotation.Service;
+import org.b3log.latke.servlet.RequestContext;
 import org.b3log.latke.util.*;
 import org.b3log.solo.SoloServletListener;
 import org.b3log.solo.model.*;
 import org.b3log.solo.repository.*;
-import org.b3log.solo.util.Emotions;
 import org.b3log.solo.util.Markdowns;
 import org.b3log.solo.util.Skins;
 import org.b3log.solo.util.Solos;
@@ -49,19 +49,17 @@ import org.json.JSONObject;
 import org.jsoup.Jsoup;
 import org.jsoup.safety.Whitelist;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
 import java.io.StringWriter;
 import java.util.*;
 
 import static org.b3log.solo.model.Article.ARTICLE_CONTENT;
 
 /**
- * DataModelService utilities.
+ * Data model service.
  *
  * @author <a href="http://88250.b3log.org">Liang Ding</a>
  * @author <a href="http://vanessa.b3log.org">Liyuan Li</a>
- * @version 1.6.16.11, Oct 5, 2018
+ * @version 1.7.0.10, Apr 22, 2019
  * @since 0.3.1
  */
 @Service
@@ -71,11 +69,6 @@ public class DataModelService {
      * Logger.
      */
     private static final Logger LOGGER = Logger.getLogger(DataModelService.class);
-
-    /**
-     * {@code true} for published.
-     */
-    private static final boolean PUBLISHED = true;
 
     /**
      * Article repository.
@@ -102,10 +95,22 @@ public class DataModelService {
     private CategoryRepository categoryRepository;
 
     /**
+     * Tag-Article repository.
+     */
+    @Inject
+    private TagArticleRepository tagArticleRepository;
+
+    /**
      * Tag repository.
      */
     @Inject
     private TagRepository tagRepository;
+
+    /**
+     * Category-Tag repository.
+     */
+    @Inject
+    private CategoryTagRepository categoryTagRepository;
 
     /**
      * Link repository.
@@ -176,13 +181,13 @@ public class DataModelService {
     /**
      * Fills articles in index.ftl.
      *
-     * @param request        the specified HTTP servlet request
+     * @param context        the specified HTTP servlet request context
      * @param dataModel      data model
      * @param currentPageNum current page number
      * @param preference     the specified preference
      * @throws ServiceException service exception
      */
-    public void fillIndexArticles(final HttpServletRequest request, final Map<String, Object> dataModel, final int currentPageNum, final JSONObject preference)
+    public void fillIndexArticles(final RequestContext context, final Map<String, Object> dataModel, final int currentPageNum, final JSONObject preference)
             throws ServiceException {
         Stopwatchs.start("Fill Index Articles");
 
@@ -190,14 +195,10 @@ public class DataModelService {
             final int pageSize = preference.getInt(Option.ID_C_ARTICLE_LIST_DISPLAY_COUNT);
             final int windowSize = preference.getInt(Option.ID_C_ARTICLE_LIST_PAGINATION_WINDOW_SIZE);
 
-            final JSONObject statistic = statisticQueryService.getStatistic();
-            final int publishedArticleCnt = statistic.getInt(Option.ID_C_STATISTIC_PUBLISHED_ARTICLE_COUNT);
-            final int pageCount = (int) Math.ceil((double) publishedArticleCnt / (double) pageSize);
+            final Query query = new Query().setPage(currentPageNum, pageSize).
+                    setFilter(new PropertyFilter(Article.ARTICLE_STATUS, FilterOperator.EQUAL, Article.ARTICLE_STATUS_C_PUBLISHED));
 
-            final Query query = new Query().setCurrentPageNum(currentPageNum).setPageSize(pageSize).setPageCount(pageCount).setFilter(
-                    new PropertyFilter(Article.ARTICLE_IS_PUBLISHED, FilterOperator.EQUAL, PUBLISHED));
-
-            final Template template = Skins.getSkinTemplate(request, "index.ftl");
+            final Template template = Skins.getSkinTemplate(context, "index.ftl");
             boolean isArticles1 = false;
             if (null == template) {
                 LOGGER.debug("The skin dose not contain [index.ftl] template");
@@ -205,7 +206,6 @@ public class DataModelService {
                 if (Templates.hasExpression(template, "<#list articles1 as article>")) {
                     isArticles1 = true;
                     query.addSort(Article.ARTICLE_CREATED, SortDirection.DESCENDING);
-
                     LOGGER.trace("Query ${articles1} in index.ftl");
                 } else { // <#list articles as article>
                     query.addSort(Article.ARTICLE_PUT_TOP, SortDirection.DESCENDING);
@@ -216,19 +216,18 @@ public class DataModelService {
                     }
                 }
 
-            query.index(Article.ARTICLE_PERMALINK);
+            final JSONObject articlesResult = articleRepository.get(query);
+            final List<JSONObject> articles = CollectionUtils.jsonArrayToList(articlesResult.optJSONArray(Keys.RESULTS));
+            final int pageCount = articlesResult.optJSONObject(Pagination.PAGINATION).optInt(Pagination.PAGINATION_PAGE_COUNT);
+            setArticlesExProperties(context, articles, preference);
 
             final List<Integer> pageNums = Paginator.paginate(currentPageNum, pageSize, pageCount, windowSize);
             if (0 != pageNums.size()) {
                 dataModel.put(Pagination.PAGINATION_FIRST_PAGE_NUM, pageNums.get(0));
                 dataModel.put(Pagination.PAGINATION_LAST_PAGE_NUM, pageNums.get(pageNums.size() - 1));
             }
-
             dataModel.put(Pagination.PAGINATION_PAGE_COUNT, pageCount);
             dataModel.put(Pagination.PAGINATION_PAGE_NUMS, pageNums);
-
-            final List<JSONObject> articles = articleRepository.getList(query);
-            setArticlesExProperties(request, articles, preference);
 
             if (!isArticles1) {
                 dataModel.put(Article.ARTICLES, articles);
@@ -280,8 +279,6 @@ public class DataModelService {
         Stopwatchs.start("Fill Tags");
         try {
             final List<JSONObject> tags = tagQueryService.getTags();
-            tagQueryService.removeForUnpublishedArticles(tags);
-            Collections.sort(tags, Comparator.comparingInt(t -> -t.optInt(Tag.TAG_REFERENCE_COUNT)));
             dataModel.put(Tag.TAGS, tags);
         } catch (final Exception e) {
             LOGGER.log(Level.ERROR, "Fills tags failed", e);
@@ -292,6 +289,28 @@ public class DataModelService {
         }
 
         Stopwatchs.end();
+    }
+
+    /**
+     * Fills categories.
+     *
+     * @param dataModel data model
+     * @throws ServiceException service exception
+     */
+    public void fillCategories(final Map<String, Object> dataModel) throws ServiceException {
+        Stopwatchs.start("Fill Categories");
+
+        try {
+            LOGGER.debug("Filling categories....");
+            final List<JSONObject> categories = categoryRepository.getMostUsedCategories(Integer.MAX_VALUE);
+            dataModel.put(Category.CATEGORIES, categories);
+        } catch (final RepositoryException e) {
+            LOGGER.log(Level.ERROR, "Fills categories failed", e);
+
+            throw new ServiceException(e);
+        } finally {
+            Stopwatchs.end();
+        }
     }
 
     /**
@@ -331,11 +350,7 @@ public class DataModelService {
         try {
             LOGGER.debug("Filling most used tags....");
             final int mostUsedTagDisplayCnt = preference.getInt(Option.ID_C_MOST_USED_TAG_DISPLAY_CNT);
-
-            final List<JSONObject> tags = tagRepository.getMostUsedTags(mostUsedTagDisplayCnt);
-
-            tagQueryService.removeForUnpublishedArticles(tags);
-
+            final List<JSONObject> tags = tagArticleRepository.getMostUsedTags(mostUsedTagDisplayCnt);
             dataModel.put(Common.MOST_USED_TAGS, tags);
         } catch (final Exception e) {
             LOGGER.log(Level.ERROR, "Fills most used tags failed", e);
@@ -359,10 +374,8 @@ public class DataModelService {
         try {
             LOGGER.debug("Filling archive dates....");
             final List<JSONObject> archiveDates = archiveDateRepository.getArchiveDates();
-            final List<JSONObject> archiveDates2 = new ArrayList<JSONObject>();
-
+            final List<JSONObject> archiveDates2 = new ArrayList<>();
             dataModel.put(ArchiveDate.ARCHIVE_DATES, archiveDates2);
-
             if (archiveDates.isEmpty()) {
                 return;
             }
@@ -503,22 +516,14 @@ public class DataModelService {
             final List<JSONObject> recentComments = commentRepository.getRecentComments(recentCommentDisplayCnt);
             for (final JSONObject comment : recentComments) {
                 String commentContent = comment.optString(Comment.COMMENT_CONTENT);
-                commentContent = Emotions.convert(commentContent);
                 commentContent = Markdowns.toHTML(commentContent);
                 commentContent = Jsoup.clean(commentContent, Whitelist.relaxed());
                 comment.put(Comment.COMMENT_CONTENT, commentContent);
                 comment.put(Comment.COMMENT_NAME, comment.getString(Comment.COMMENT_NAME));
                 comment.put(Comment.COMMENT_URL, comment.getString(Comment.COMMENT_URL));
                 comment.put(Common.IS_REPLY, false);
-                comment.remove(Comment.COMMENT_EMAIL); // Erases email for security reason
                 comment.put(Comment.COMMENT_T_DATE, new Date(comment.optLong(Comment.COMMENT_CREATED)));
                 comment.put("commentDate2", new Date(comment.optLong(Comment.COMMENT_CREATED)));
-
-                final String email = comment.optString(Comment.COMMENT_EMAIL);
-                final String thumbnailURL = comment.optString(Comment.COMMENT_THUMBNAIL_URL);
-                if (StringUtils.isBlank(thumbnailURL)) {
-                    comment.put(Comment.COMMENT_THUMBNAIL_URL, Solos.getGravatarURL(email, "128"));
-                }
             }
 
             dataModel.put(Common.RECENT_COMMENTS, recentComments);
@@ -532,31 +537,85 @@ public class DataModelService {
     }
 
     /**
+     * Fills favicon URL. 可配置 favicon 图标路径 https://github.com/b3log/solo/issues/12706
+     *
+     * @param dataModel  the specified data model
+     * @param preference the specified preference
+     */
+    public void fillFaviconURL(final Map<String, Object> dataModel, final JSONObject preference) {
+        if (null == preference) {
+            dataModel.put(Common.FAVICON_URL, Option.DefaultPreference.DEFAULT_FAVICON_URL);
+        } else {
+            dataModel.put(Common.FAVICON_URL, preference.optString(Option.ID_C_FAVICON_URL));
+        }
+    }
+
+    /**
+     * Fills usite. 展示站点连接 https://github.com/b3log/solo/issues/12719
+     *
+     * @param dataModel the specified data model
+     */
+    public void fillUsite(final Map<String, Object> dataModel) {
+        try {
+            final JSONObject usiteOpt = optionQueryService.getOptionById(Option.ID_C_USITE);
+            if (null == usiteOpt) {
+                return;
+            }
+
+            dataModel.put(Option.ID_C_USITE, new JSONObject(usiteOpt.optString(Option.OPTION_VALUE)));
+        } catch (final Exception e) {
+            LOGGER.log(Level.ERROR, "Fills usite failed", e);
+        }
+    }
+
+    /**
      * Fills common parts (header, side and footer).
      *
-     * @param request    the specified HTTP servlet request
-     * @param response   the specified HTTP servlet response
+     * @param context    the specified HTTP servlet request context
      * @param dataModel  the specified data model
      * @param preference the specified preference
      * @throws ServiceException service exception
      */
-    public void fillCommon(final HttpServletRequest request, final HttpServletResponse response, final Map<String, Object> dataModel, final JSONObject preference)
-            throws ServiceException {
-        fillSide(request, dataModel, preference);
-        fillBlogHeader(request, response, dataModel, preference);
-        fillBlogFooter(request, response, dataModel, preference);
+    public void fillCommon(final RequestContext context, final Map<String, Object> dataModel, final JSONObject preference) throws ServiceException {
+        fillSide(context, dataModel, preference);
+        fillBlogHeader(context, dataModel, preference);
+        fillBlogFooter(context, dataModel, preference);
+
+        // 支持配置自定义模板变量 https://github.com/b3log/solo/issues/12535
+        final Map<String, String> customVars = new HashMap<>();
+        final String customVarsStr = preference.optString(Option.ID_C_CUSTOM_VARS);
+        final String[] customVarsArray = customVarsStr.split("\\|");
+        for (int i = 0; i < customVarsArray.length; i++) {
+            final String customVarPair = customVarsArray[i];
+            if (StringUtils.isNotBlank(customVarsStr)) {
+                final String customVarKey = customVarPair.split("=")[0];
+                final String customVarVal = customVarPair.split("=")[1];
+                if (StringUtils.isNotBlank(customVarKey) && StringUtils.isNotBlank(customVarVal)) {
+                    customVars.put(customVarKey, customVarVal);
+                }
+            }
+        }
+        dataModel.put("customVars", customVars);
+
+        // 使用 Marked 时代码高亮问题 https://github.com/b3log/solo/issues/12614
+        dataModel.put(Common.MARKED_AVAILABLE, Markdowns.MARKDOWN_HTTP_AVAILABLE);
+
+        String hljsTheme = preference.optString(Option.ID_C_HLJS_THEME);
+        if (StringUtils.isBlank(hljsTheme)) {
+            hljsTheme = Option.DefaultPreference.DEFAULT_HLJS_THEME;
+        }
+        dataModel.put(Option.ID_C_HLJS_THEME, hljsTheme);
     }
 
     /**
      * Fills footer.ftl.
      *
-     * @param request    the specified HTTP servlet request
-     * @param response   the specified HTTP servlet response
+     * @param context    the specified HTTP servlet request context
      * @param dataModel  data model
      * @param preference the specified preference
      * @throws ServiceException service exception
      */
-    private void fillBlogFooter(final HttpServletRequest request, final HttpServletResponse response, final Map<String, Object> dataModel, final JSONObject preference)
+    private void fillBlogFooter(final RequestContext context, final Map<String, Object> dataModel, final JSONObject preference)
             throws ServiceException {
         Stopwatchs.start("Fill Footer");
         try {
@@ -575,34 +634,23 @@ public class DataModelService {
             dataModel.put(Option.ID_C_FOOTER_CONTENT, footerContent);
             dataModel.put(Keys.Server.STATIC_SERVER, Latkes.getStaticServer());
             dataModel.put(Keys.Server.SERVER, Latkes.getServer());
-            dataModel.put(Common.IS_INDEX, "/".equals(request.getRequestURI()));
+            dataModel.put(Common.IS_INDEX, "/".equals(context.requestURI()));
             dataModel.put(User.USER_NAME, "");
-            final JSONObject currentUser = Solos.getCurrentUser(request, response);
+            final JSONObject currentUser = Solos.getCurrentUser(context.getRequest(), context.getResponse());
             if (null != currentUser) {
                 final String userAvatar = currentUser.optString(UserExt.USER_AVATAR);
-                if (StringUtils.isNotBlank(userAvatar)) {
-                    dataModel.put(Common.GRAVATAR, userAvatar);
-                } else {
-                    final String email = currentUser.optString(User.USER_EMAIL);
-                    final String gravatar = Solos.getGravatarURL(email, "128");
-                    dataModel.put(Common.GRAVATAR, gravatar);
-                }
-
+                dataModel.put(Common.GRAVATAR, userAvatar);
                 dataModel.put(User.USER_NAME, currentUser.optString(User.USER_NAME));
             }
 
             // Activates plugins
-            try {
-                final ViewLoadEventData data = new ViewLoadEventData();
-                data.setViewName("footer.ftl");
-                data.setDataModel(dataModel);
-                eventManager.fireEventSynchronously(new Event<>(Keys.FREEMARKER_ACTION, data));
-                if (StringUtils.isBlank((String) dataModel.get(Plugin.PLUGINS))) {
-                    // There is no plugin for this template, fill ${plugins} with blank.
-                    dataModel.put(Plugin.PLUGINS, "");
-                }
-            } catch (final EventException e) {
-                LOGGER.log(Level.WARN, "Event[FREEMARKER_ACTION] handle failed, ignores this exception for kernel health", e);
+            final ViewLoadEventData data = new ViewLoadEventData();
+            data.setViewName("footer.ftl");
+            data.setDataModel(dataModel);
+            eventManager.fireEventSynchronously(new Event<>(Keys.FREEMARKER_ACTION, data));
+            if (StringUtils.isBlank((String) dataModel.get(Plugin.PLUGINS))) {
+                // There is no plugin for this template, fill ${plugins} with blank.
+                dataModel.put(Plugin.PLUGINS, "");
             }
         } catch (final Exception e) {
             LOGGER.log(Level.ERROR, "Fills blog footer failed", e);
@@ -616,18 +664,17 @@ public class DataModelService {
     /**
      * Fills header.ftl.
      *
-     * @param request    the specified HTTP servlet request
-     * @param response   the specified HTTP servlet response
+     * @param context    the specified HTTP servlet request context
      * @param dataModel  data model
      * @param preference the specified preference
      * @throws ServiceException service exception
      */
-    private void fillBlogHeader(final HttpServletRequest request, final HttpServletResponse response, final Map<String, Object> dataModel, final JSONObject preference)
+    private void fillBlogHeader(final RequestContext context, final Map<String, Object> dataModel, final JSONObject preference)
             throws ServiceException {
         Stopwatchs.start("Fill Header");
         try {
             LOGGER.debug("Filling header....");
-            final String topBarHTML = getTopBarHTML(request, response);
+            final String topBarHTML = getTopBarHTML(context);
             dataModel.put(Common.LOGIN_URL, userQueryService.getLoginURL(Common.ADMIN_INDEX_URI));
             dataModel.put(Common.LOGOUT_URL, userQueryService.getLogoutURL());
             dataModel.put(Common.ONLINE_VISITOR_CNT, StatisticQueryService.getOnlineVisitorCount());
@@ -649,17 +696,18 @@ public class DataModelService {
             }
             dataModel.put(Option.ID_C_META_DESCRIPTION, metaDescription);
             dataModel.put(Common.YEAR, String.valueOf(Calendar.getInstance().get(Calendar.YEAR)));
-            dataModel.put(Common.IS_LOGGED_IN, null != Solos.getCurrentUser(request, response));
+            dataModel.put(Common.IS_LOGGED_IN, null != Solos.getCurrentUser(context.getRequest(), context.getResponse()));
             dataModel.put(Common.FAVICON_API, Solos.FAVICON_API);
             final String noticeBoard = preference.getString(Option.ID_C_NOTICE_BOARD);
             dataModel.put(Option.ID_C_NOTICE_BOARD, noticeBoard);
-            final Query query = new Query().setPageCount(1);
+            // 皮肤不显示访客用户 https://github.com/b3log/solo/issues/12752
+            final Query query = new Query().setPageCount(1).setFilter(new PropertyFilter(User.USER_ROLE, FilterOperator.NOT_EQUAL, Role.VISITOR_ROLE));
             final List<JSONObject> userList = userRepository.getList(query);
             dataModel.put(User.USERS, userList);
             final JSONObject admin = userRepository.getAdmin();
             dataModel.put(Common.ADMIN_USER, admin);
-            final String skinDirName = (String) request.getAttribute(Keys.TEMAPLTE_DIR_NAME);
-            dataModel.put(Skin.SKIN_DIR_NAME, skinDirName);
+            final String skinDirName = (String) context.attr(Keys.TEMAPLTE_DIR_NAME);
+            dataModel.put(Option.ID_C_SKIN_DIR_NAME, skinDirName);
             Keys.fillRuntime(dataModel);
             fillMinified(dataModel);
             fillPageNavigations(dataModel);
@@ -699,22 +747,22 @@ public class DataModelService {
     /**
      * Fills side.ftl.
      *
-     * @param request    the specified HTTP servlet request
+     * @param context    the specified HTTP servlet request context
      * @param dataModel  data model
      * @param preference the specified preference
      * @throws ServiceException service exception
      */
-    private void fillSide(final HttpServletRequest request, final Map<String, Object> dataModel, final JSONObject preference)
+    private void fillSide(final RequestContext context, final Map<String, Object> dataModel, final JSONObject preference)
             throws ServiceException {
         Stopwatchs.start("Fill Side");
         try {
             LOGGER.debug("Filling side....");
 
-            Template template = Skins.getSkinTemplate(request, "side.ftl");
+            Template template = Skins.getSkinTemplate(context, "side.ftl");
             if (null == template) {
                 LOGGER.debug("The skin dose not contain [side.ftl] template");
 
-                template = Skins.getSkinTemplate(request, "index.ftl");
+                template = Skins.getSkinTemplate(context, "index.ftl");
                 if (null == template) {
                     LOGGER.debug("The skin dose not contain [index.ftl] template");
                     return;
@@ -751,13 +799,13 @@ public class DataModelService {
     /**
      * Fills the specified template.
      *
-     * @param request    the specified HTTP servlet request
+     * @param context    the specified HTTP servlet request context
      * @param template   the specified template
      * @param dataModel  data model
      * @param preference the specified preference
      * @throws ServiceException service exception
      */
-    public void fillUserTemplate(final HttpServletRequest request, final Template template,
+    public void fillUserTemplate(final RequestContext context, final Template template,
                                  final Map<String, Object> dataModel, final JSONObject preference) throws ServiceException {
         Stopwatchs.start("Fill User Template[name=" + template.getName() + "]");
         try {
@@ -769,6 +817,10 @@ public class DataModelService {
 
             if (Templates.hasExpression(template, "<#list tags as tag>")) {
                 fillTags(dataModel);
+            }
+
+            if (Templates.hasExpression(template, "<#list categories as category>")) {
+                fillCategories(dataModel);
             }
 
             if (Templates.hasExpression(template, "<#list recentComments as comment>")) {
@@ -784,7 +836,7 @@ public class DataModelService {
             }
 
             if (Templates.hasExpression(template, "<#include \"side.ftl\"/>")) {
-                fillSide(request, dataModel, preference);
+                fillSide(context, dataModel, preference);
             }
 
             final String noticeBoard = preference.getString(Option.ID_C_NOTICE_BOARD);
@@ -810,14 +862,6 @@ public class DataModelService {
         try {
             LOGGER.debug("Filling page navigations....");
             final List<JSONObject> pages = pageRepository.getPages();
-            for (final JSONObject page : pages) {
-                if ("page".equals(page.optString(Page.PAGE_TYPE))) {
-                    final String permalink = page.optString(Page.PAGE_PERMALINK);
-
-                    page.put(Page.PAGE_PERMALINK, Latkes.getServePath() + permalink);
-                }
-            }
-
             dataModel.put(Common.PAGE_NAVIGATIONS, pages);
         } catch (final RepositoryException e) {
             LOGGER.log(Level.ERROR, "Fills page navigations failed", e);
@@ -830,18 +874,14 @@ public class DataModelService {
     /**
      * Fills statistic.
      *
-     * @param dataModel data model
-     * @throws ServiceException service exception
+     * @param dataModel the specified data model
      */
-    private void fillStatistic(final Map<String, Object> dataModel) throws ServiceException {
+    private void fillStatistic(final Map<String, Object> dataModel) {
         Stopwatchs.start("Fill Statistic");
         try {
             LOGGER.debug("Filling statistic....");
             final JSONObject statistic = statisticQueryService.getStatistic();
             dataModel.put(Option.CATEGORY_C_STATISTIC, statistic);
-        } catch (final ServiceException e) {
-            LOGGER.log(Level.ERROR, "Fills statistic failed", e);
-            throw new ServiceException(e);
         } finally {
             Stopwatchs.end();
         }
@@ -862,13 +902,13 @@ public class DataModelService {
      * </pre>
      * </p>
      *
-     * @param request    the specified HTTP servlet request
+     * @param context    the specified HTTP servlet request context
      * @param article    the specified article
      * @param preference the specified preference
      * @throws ServiceException service exception
-     * @see #setArticlesExProperties(HttpServletRequest, List, JSONObject)
+     * @see #setArticlesExProperties(RequestContext, List, JSONObject)
      */
-    private void setArticleExProperties(final HttpServletRequest request, final JSONObject article, final JSONObject preference) throws ServiceException {
+    private void setArticleExProperties(final RequestContext context, final JSONObject article, final JSONObject preference) throws ServiceException {
         try {
             final JSONObject author = articleQueryService.getAuthor(article);
             final String authorName = author.getString(User.USER_NAME);
@@ -879,12 +919,7 @@ public class DataModelService {
             article.put(Article.ARTICLE_T_UPDATE_DATE, new Date(article.optLong(Article.ARTICLE_UPDATED)));
 
             final String userAvatar = author.optString(UserExt.USER_AVATAR);
-            if (StringUtils.isNotBlank(userAvatar)) {
-                article.put(Common.AUTHOR_THUMBNAIL_URL, userAvatar);
-            } else {
-                final String thumbnailURL = Solos.getGravatarURL(author.optString(User.USER_EMAIL), "128");
-                article.put(Common.AUTHOR_THUMBNAIL_URL, thumbnailURL);
-            }
+            article.put(Common.AUTHOR_THUMBNAIL_URL, userAvatar);
 
             if (preference.getBoolean(Option.ID_C_ENABLE_ARTICLE_UPDATE_HINT)) {
                 article.put(Common.HAS_UPDATED, articleQueryService.hasUpdated(article));
@@ -892,7 +927,7 @@ public class DataModelService {
                 article.put(Common.HAS_UPDATED, false);
             }
 
-            if (Solos.needViewPwd(request, article)) {
+            if (Solos.needViewPwd(context, article)) {
                 final String content = langPropsService.get("articleContentPwd");
                 article.put(ARTICLE_CONTENT, content);
             }
@@ -900,6 +935,8 @@ public class DataModelService {
             processArticleAbstract(preference, article);
 
             articleQueryService.markdown(article);
+
+            fillCategory(article);
         } catch (final Exception e) {
             LOGGER.log(Level.ERROR, "Sets article extra properties failed", e);
             throw new ServiceException(e);
@@ -907,9 +944,59 @@ public class DataModelService {
     }
 
     /**
+     * Fills category for the specified article.
+     *
+     * @param article the specified article
+     */
+    public void fillCategory(final JSONObject article) {
+        final String tagsStr = article.optString(Article.ARTICLE_TAGS_REF);
+        final String[] tags = tagsStr.split(",");
+        JSONObject category = null;
+        for (final String tagTitle : tags) {
+            final JSONObject c = getCategoryOfTag(tagTitle);
+            if (null != c) {
+                category = c;
+                break;
+            }
+        }
+        article.put(Category.CATEGORY, category);
+    }
+
+    /**
+     * Gets a category for a tag specified by the given tag title.
+     *
+     * @param tagTitle the given tag title
+     * @return category, returns {@code null} if not found
+     */
+    private JSONObject getCategoryOfTag(final String tagTitle) {
+        try {
+            final JSONObject tag = tagRepository.getByTitle(tagTitle);
+            if (null == tag) {
+                return null;
+            }
+
+            final String tagId = tag.optString(Keys.OBJECT_ID);
+            final Query query = new Query().setFilter(new PropertyFilter(Tag.TAG + "_" + Keys.OBJECT_ID, FilterOperator.EQUAL, tagId)).
+                    setPage(1, 1).setPageCount(1);
+            final JSONObject tagCategory = categoryTagRepository.getFirst(query);
+            if (null == tagCategory) {
+                return null;
+            }
+
+            final String categoryId = tagCategory.optString(Category.CATEGORY + "_" + Keys.OBJECT_ID);
+
+            return categoryRepository.get(categoryId);
+        } catch (final Exception e) {
+            LOGGER.log(Level.ERROR, "Gets category of tag [" + tagTitle + "] failed", e);
+
+            return null;
+        }
+    }
+
+    /**
      * Sets some extra properties into the specified article with the specified preference.
      * <p>
-     * The batch version of method {@linkplain #setArticleExProperties(HttpServletRequest, JSONObject, JSONObject)}.
+     * The batch version of method {@linkplain #setArticleExProperties(RequestContext, JSONObject, JSONObject)}.
      * </p>
      * <p>
      * Article ext properties:
@@ -923,16 +1010,15 @@ public class DataModelService {
      * </pre>
      * </p>
      *
-     * @param request    the specified HTTP servlet request
+     * @param context    the specified HTTP servlet request context
      * @param articles   the specified articles
      * @param preference the specified preference
      * @throws ServiceException service exception
-     * @see #setArticleExProperties(HttpServletRequest, JSONObject, JSONObject)
      */
-    public void setArticlesExProperties(final HttpServletRequest request, final List<JSONObject> articles, final JSONObject preference)
+    public void setArticlesExProperties(final RequestContext context, final List<JSONObject> articles, final JSONObject preference)
             throws ServiceException {
         for (final JSONObject article : articles) {
-            setArticleExProperties(request, article, preference);
+            setArticleExProperties(context, article, preference);
         }
     }
 
@@ -948,9 +1034,16 @@ public class DataModelService {
      * @param article    the specified article
      */
     private void processArticleAbstract(final JSONObject preference, final JSONObject article) {
-        final String articleAbstract = article.optString(Article.ARTICLE_ABSTRACT, null);
-        if (null == articleAbstract) {
+        final String articleAbstract = article.optString(Article.ARTICLE_ABSTRACT);
+        if (StringUtils.isBlank(articleAbstract)) {
             article.put(Article.ARTICLE_ABSTRACT, "");
+        }
+        final String articleAbstractText = article.optString(Article.ARTICLE_ABSTRACT_TEXT);
+        if (StringUtils.isBlank(articleAbstractText)) {
+            // 发布文章时会自动提取摘要文本，其中如果文章加密且没有写摘要，则自动提取文本会返回空字符串 Article#getAbstractText()
+            // 所以当且仅当文章加密且没有摘要的情况下 articleAbstractText 会为空
+            final LangPropsService langPropsService = BeanManager.getInstance().getReference(LangPropsService.class);
+            article.put(Article.ARTICLE_ABSTRACT_TEXT, langPropsService.get("articleContentPwd"));
         }
 
         final String articleListStyle = preference.optString(Option.ID_C_ARTICLE_LIST_STYLE);
@@ -964,31 +1057,28 @@ public class DataModelService {
     /**
      * Generates top bar HTML.
      *
-     * @param request  the specified request
-     * @param response the specified response
+     * @param context the specified request context
      * @return top bar HTML
      * @throws ServiceException service exception
      */
-    public String getTopBarHTML(final HttpServletRequest request, final HttpServletResponse response)
-            throws ServiceException {
+    public String getTopBarHTML(final RequestContext context) throws ServiceException {
         Stopwatchs.start("Gens Top Bar HTML");
 
         try {
-            final Template topBarTemplate = Skins.getTemplate("top-bar.ftl");
+            final Template topBarTemplate = Skins.getTemplate("common-template/top-bar.ftl");
             final StringWriter stringWriter = new StringWriter();
             final Map<String, Object> topBarModel = new HashMap<>();
-            final JSONObject currentUser = Solos.getCurrentUser(request, response);
+            final JSONObject currentUser = Solos.getCurrentUser(context.getRequest(), context.getResponse());
 
             Keys.fillServer(topBarModel);
             topBarModel.put(Common.IS_LOGGED_IN, false);
-            topBarModel.put(Common.IS_MOBILE_REQUEST, Requests.mobileRequest(request));
+            topBarModel.put(Common.IS_MOBILE_REQUEST, Solos.isMobile(context.getRequest()));
             topBarModel.put("mobileLabel", langPropsService.get("mobileLabel"));
             topBarModel.put("onlineVisitor1Label", langPropsService.get("onlineVisitor1Label"));
             topBarModel.put(Common.ONLINE_VISITOR_CNT, StatisticQueryService.getOnlineVisitorCount());
             if (null == currentUser) {
                 topBarModel.put(Common.LOGIN_URL, userQueryService.getLoginURL(Common.ADMIN_INDEX_URI));
-                topBarModel.put("loginLabel", langPropsService.get("loginLabel"));
-                topBarModel.put("registerLabel", langPropsService.get("registerLabel"));
+                topBarModel.put("startToUseLabel", langPropsService.get("startToUseLabel"));
                 topBarTemplate.process(topBarModel, stringWriter);
 
                 return stringWriter.toString();

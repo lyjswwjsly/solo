@@ -1,6 +1,6 @@
 /*
  * Solo - A small and beautiful blogging system written in Java.
- * Copyright (c) 2010-2018, b3log.org & hacpai.com
+ * Copyright (c) 2010-present, b3log.org
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
@@ -18,7 +18,6 @@
 package org.b3log.solo.service;
 
 import junit.framework.Assert;
-import org.apache.commons.codec.digest.DigestUtils;
 import org.b3log.latke.Keys;
 import org.b3log.latke.model.Role;
 import org.b3log.latke.model.User;
@@ -49,8 +48,6 @@ public class UserMgmtServiceTestCase extends AbstractTestCase {
         final JSONObject requestJSONObject = new JSONObject();
 
         requestJSONObject.put(User.USER_NAME, "user1name");
-        requestJSONObject.put(User.USER_EMAIL, "test1@gmail.com");
-        requestJSONObject.put(User.USER_PASSWORD, "pass1");
 
         final String id = userMgmtService.addUser(requestJSONObject);
         Assert.assertNotNull(id);
@@ -67,8 +64,6 @@ public class UserMgmtServiceTestCase extends AbstractTestCase {
 
         JSONObject requestJSONObject = new JSONObject();
         requestJSONObject.put(User.USER_NAME, "user2name");
-        requestJSONObject.put(User.USER_EMAIL, "test2@gmail.com");
-        requestJSONObject.put(User.USER_PASSWORD, "pass2");
         requestJSONObject.put(User.USER_ROLE, Role.ADMIN_ROLE);
 
         final String id = userMgmtService.addUser(requestJSONObject);
@@ -81,17 +76,6 @@ public class UserMgmtServiceTestCase extends AbstractTestCase {
 
         Assert.assertEquals(getUserQueryService().getUser(id).getJSONObject(
                 User.USER).getString(User.USER_NAME), "user2newname");
-
-        // Do not update password
-        requestJSONObject.put(Keys.OBJECT_ID, id);
-        requestJSONObject.put(User.USER_NAME, "user2name");
-        requestJSONObject.put(User.USER_EMAIL, "test2@gmail.com");
-        requestJSONObject.put(User.USER_PASSWORD, "pass2");
-
-        userMgmtService.updateUser(requestJSONObject);
-
-        Assert.assertEquals(getUserQueryService().getUser(id).getJSONObject(
-                User.USER).getString(User.USER_PASSWORD), DigestUtils.md5Hex("pass2"));
     }
 
     /**
@@ -105,8 +89,6 @@ public class UserMgmtServiceTestCase extends AbstractTestCase {
 
         final JSONObject requestJSONObject = new JSONObject();
         requestJSONObject.put(User.USER_NAME, "user1 name");
-        requestJSONObject.put(User.USER_EMAIL, "test1@gmail.com");
-        requestJSONObject.put(User.USER_PASSWORD, "pass1");
 
         try {
             final String id = userMgmtService.addUser(requestJSONObject);
@@ -125,8 +107,7 @@ public class UserMgmtServiceTestCase extends AbstractTestCase {
         final UserMgmtService userMgmtService = getUserMgmtService();
 
         final JSONObject requestJSONObject = new JSONObject();
-        requestJSONObject.put(User.USER_NAME, "username");
-        requestJSONObject.put(User.USER_EMAIL, "<script></script>");
+        requestJSONObject.put(User.USER_NAME, "<script></script>");
 
         final String id = userMgmtService.addUser(requestJSONObject);
     }
@@ -140,11 +121,11 @@ public class UserMgmtServiceTestCase extends AbstractTestCase {
     public void removeUser() throws Exception {
         final UserMgmtService userMgmtService = getUserMgmtService();
 
-        final JSONObject user = getUserQueryService().getUserByEmailOrUserName("test1@gmail.com");
+        final JSONObject user = getUserQueryService().getUserByName("user1name");
         Assert.assertNotNull(user);
 
         userMgmtService.removeUser(user.getString(Keys.OBJECT_ID));
 
-        Assert.assertNull(getUserQueryService().getUserByEmailOrUserName("test1@gmail.com"));
+        Assert.assertNull(getUserQueryService().getUserByName("user1name"));
     }
 }
